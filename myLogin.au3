@@ -10,8 +10,10 @@
 ; Configuración global
 Global $sPasswordCorrecta = "0xBB7B85A436B38DFAE3756DDF54AF46CD"
 Global $iTransparencia = 150       ; 0-255 (transparente-opaco)
-Global $iTransparenciaPassGUI = 225 ; 0-255 (transparente-opaco) para ventana de contraseña
+Global $iTransparenciaPassGUI = 200 ; 0-255 (transparente-opaco) para ventana de contraseña
+Global $iColorTxt = 0xFFFFFF
 Global $iColorFondo = 0x000000     ; Color de fondo negro
+Global $iColorFondoPanel = 0x00696d
 Global $iAnchoPass = 350           ; Ancho ventana contraseña
 Global $iAltoPass = 200            ; Alto ventana contraseña
 Global $iFail = 0
@@ -27,44 +29,56 @@ GUISetState(@SW_SHOW, $hGUI)
 
 ; Crear ventana de contraseña (centrada)
 Local $hPassGUI = GUICreate("Acceso Restringido", $iAnchoPass, $iAltoPass, -1, -1, $WS_POPUP, $WS_EX_TOPMOST, $hGUI)
-GUISetBkColor(0xFFFFFF, $hPassGUI)
-WinSetTrans($hPassGUI, "", $iTransparenciaPassGUI) ; Establecer transparencia para la ventana blanca
+GUISetBkColor($iColorFondoPanel, $hPassGUI)
+WinSetTrans($hPassGUI, "", $iTransparenciaPassGUI) ; Establecer transparencia para la ventana
 
 ; Posicionar controles
-GUICtrlCreateIcon("shell32.dll", -245, ($iAnchoPass - 32) / 2, 10, 32, 32)
+Local $idIcoPass = GUICtrlCreateIcon("shell32.dll", -245, ($iAnchoPass - 32) / 2, 10, 32, 32)
 GUICtrlSetTip(-1, "¡Virus detectado!")
 
-Local $idLabel = GUICtrlCreateLabel("Sistema bloqueado" & @CRLF & "Escribe la palabra mágica:", _
-                     10, 50, $iAnchoPass - 20, 40, $SS_CENTER)
-GUICtrlSetFont($idLabel, 10, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
+Local $idTxtPass = GUICtrlCreateLabel("Sistema bloqueado", 10, 45, $iAnchoPass - 10, 20, $SS_CENTER)
+GUICtrlSetFont(-1, 12, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
+GUICtrlSetColor(-1, $iColorTxt)
+
+GUICtrlCreateLabel("Escribe la palabra mágica:", 10, 65, $iAnchoPass - 10, 20, $SS_CENTER)
+GUICtrlSetFont(-1, 10, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
+GUICtrlSetColor(-1, $iColorTxt)
 
 Local $idInput = GUICtrlCreateInput("", 50, 90, $iAnchoPass - 100, 20, $ES_PASSWORD)
-GUICtrlSetState($idInput, $GUI_FOCUS)  ; Establece el foco en el input
+GUICtrlSetState(-1, $GUI_FOCUS)
 
 Local $idErrorLabel = GUICtrlCreateLabel("", 10, 120, $iAnchoPass - 20, 20, $SS_CENTER)
-GUICtrlSetColor($idErrorLabel, 0xFF0000)
+GUICtrlSetColor(-1, 0xffec00) ; rojo=0xFF0000
+GUICtrlSetFont(-1, 10, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
 
 Local $topIcoBoton = 146, $topTxtBoton = 185
 
-Local $idBoton = GUICtrlCreateButton(-1, 290, $topIcoBoton, 40, 40, $BS_ICON)
-GUICtrlSetImage($idBoton, "shell32.dll", -300)
-;~ GUICtrlSetTip($idBoton, "Desbloquear")
+Local $idBotonUnlock = GUICtrlCreateButton(-1, 290, $topIcoBoton, 40, 40, $BS_ICON)
+GUICtrlSetImage(-1, "shell32.dll", -300)
+;~ GUICtrlSetTip(-1, "Desbloquear")
 GUICtrlCreateLabel("Desbloquear", 280, $topTxtBoton)
 GUICtrlSetFont(-1, 8)
+GUICtrlSetColor(-1, $iColorTxt)
 
 ;~ GUICtrlCreateButton("Desbloquear", ($iAnchoPass - 100) / 2, 150, 100, 30)
 
 Local $idOff = GUICtrlCreateButton(-1, 20, $topIcoBoton, 40, 40, $BS_ICON)
-GUICtrlSetImage($idOff, "shell32.dll", -28)
-;~ GUICtrlSetTip($idOff, "Apagar")
+GUICtrlSetImage(-1, "shell32.dll", -28)
+;~ GUICtrlSetTip(-1, "Apagar")
 GUICtrlCreateLabel("Apagar", 22, $topTxtBoton)
 GUICtrlSetFont(-1, 8)
+GUICtrlSetColor(-1, $iColorTxt)
 
 Local $idRst = GUICtrlCreateButton(-1, 65, $topIcoBoton, 40, 40, $BS_ICON)
-GUICtrlSetImage($idRst, "shell32.dll", -239)
-;~ GUICtrlSetTip($idRst, "Reiniciar")
+GUICtrlSetImage(-1, "shell32.dll", -239)
+;~ GUICtrlSetTip(-1, "Reiniciar")
 GUICtrlCreateLabel("Reiniciar", 65, $topTxtBoton)
 GUICtrlSetFont(-1, 8)
+GUICtrlSetColor(-1, $iColorTxt)
+
+GUICtrlCreateLabel("Winlogon " & _Hora(), 140, 160)
+GUICtrlSetFont(-1, 8, $FW_NORMAL, $GUI_FONTNORMAL, "Consolas")
+GUICtrlSetColor(-1, $iColorTxt)
 
 SoundPlay(@WindowsDir & "\media\tada.wav", $SOUND_NOWAIT)
 
@@ -81,30 +95,42 @@ Next
 ; Bucle principal
 While 1
     Switch GUIGetMsg()
-        Case $GUI_EVENT_CLOSE, $idBoton
+        Case $GUI_EVENT_CLOSE, $idBotonUnlock
             If _VerificarPassword() Then
+
+			   GUICtrlSetImage($idIcoPass, "shell32.dll", -297)
+			   GUISetBkColor(0x00FF00, $hGUI)
+
+			   GUICtrlSetData($idTxtPass, "Desbloqueado")
+			   GUICtrlSetColor($idTxtPass, 0x0fff00)
+
+			   If $iFail > 0 Then
+
+				  GUICtrlSetData($idErrorLabel, "Ok.")
+				  GUICtrlSetColor($idErrorLabel, 0x0fff00)
+			   EndIf
 
 			   SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
 
-			   GUISetBkColor(0x00FF00, $hGUI)
-
-			   Sleep(300)
+			   Sleep(400)
 
 			   ExitLoop
 			EndIf
 
 			$iFail += 1
 
-            GUICtrlSetData($idErrorLabel, "(" & $iFail & ") Incorrecto, Intente nuevamente.")
+            GUICtrlSetData($idErrorLabel, "(" & $iFail & ") Incorrecto, prueba otra vez...")
             GUICtrlSetData($idInput, "")
 			GUICtrlSetState($idInput, $GUI_FOCUS)
 
 			SoundPlay(@WindowsDir & "\media\chord.wav", $SOUND_NOWAIT)
 
+			GUICtrlSetImage($idIcoPass, "shell32.dll", -132)
 			GUISetBkColor(0xFF0000, $hGUI)
 
 			Sleep(300)
 
+			GUICtrlSetImage($idIcoPass, "shell32.dll", -245)
 			GUISetBkColor($iColorFondo, $hGUI)
 
 		 Case $idOff
@@ -138,4 +164,18 @@ Func _Hash_SHA1_SHA1_MD5($sInput)
    $sHash = _Crypt_HashData($sHash, $CALG_MD5)
 
    Return $sHash
+EndFunc
+
+Func _Hora()
+   Local $h24 = @HOUR
+   Local $apm = "a"
+
+   If $h24 >= 12 Then
+	  $apm = "p"
+	  If $h24 > 12 Then $h24 -= 12
+   ElseIf $h24 = 0 Then
+	  $h24 = 12
+   EndIf
+
+   Return $h24 & ":" & @MIN & " " & $apm & "m"
 EndFunc
