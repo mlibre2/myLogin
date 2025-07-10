@@ -107,12 +107,6 @@ While 1
 
 			GUISetBkColor($iColorFondo, $hGUI)
 
-			If $iFail = 3 Then
-			   GUIDelete($hPassGUI)
-			   GUIDelete($hGUI)
-			   Exit
-			EndIf
-
 		 Case $idOff
 			Shutdown($SD_FORCE + $SD_POWERDOWN)
 
