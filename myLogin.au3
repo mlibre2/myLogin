@@ -98,7 +98,7 @@ GUISetState(@SW_SHOW, $hPassGUI)
 Local $aHotKeys = ["^", _ ; Ctrl
 "!", _ ; Alt
 "#", _ ; Win
-"{F4}", "{DEL}", "{TAB}", "{HOME}", "{ESC}"]
+"{F4}", "{DEL}", "{TAB}", "{HOME}", "{ESC}", "{UP}", "{DOWN}", "{LEFT}", "{RIGHT}", "{SPACE}"]
 
 For $sKey In $aHotKeys
     HotKeySet($sKey, "_NoHacerNada")
