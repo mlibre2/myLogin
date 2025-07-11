@@ -10,13 +10,17 @@
 ; Configuración global
 Global $sPasswordCorrecta = "0xBB7B85A436B38DFAE3756DDF54AF46CD"
 Global $iTransparencia = 150       ; 0-255 (transparente-opaco)
-Global $iTransparenciaPassGUI = 200 ; 0-255 (transparente-opaco) para ventana de contraseña
+Global $iTransparenciaPassGUI = 200 ; 0-255 (transparente-opaco) para ventana
 Global $iColorTxt = 0xFFFFFF
 Global $iColorFondo = 0x000000     ; Color de fondo negro
 Global $iColorFondoPanel = 0x00696d
-Global $iAnchoPass = 350           ; Ancho ventana contraseña
-Global $iAltoPass = 200            ; Alto ventana contraseña
-Global $iFail = 0
+Global $iAnchoPass = 350           ; Ancho ventana
+Global $iAltoPass = 200            ; Alto ventana
+Global $iFail = 0, $iOffExplorer = False
+
+If $iOffExplorer = True Then
+   ShellExecute("cmd.exe", "cmd /c ping -n 5 localhost >nul & taskkill /f /im explorer.exe", "", "", @SW_HIDE)
+EndIf
 
 ; Verificar instancia única
 If _Singleton("VentanaBloqueoPantalla", 1) = 0 Then Exit
@@ -87,59 +91,68 @@ WinMove($hPassGUI, "", (@DesktopWidth - $iAnchoPass) / 2, (@DesktopHeight - $iAl
 GUISetState(@SW_SHOW, $hPassGUI)
 
 ; Bloquear teclas especiales
-Local $aHotKeys = ["{ESC}", "^{ESC}", "!{F4}", "^{ALT}{DEL}", "#{TAB}", "#{r}", "{HOME}", "{TAB}", "#", "^{TAB}"]
+Local $aHotKeys = ["^", _ ; Ctrl
+"!", _ ; Alt
+"#", _ ; Win
+"{F4}", "{DEL}", "{TAB}", "{HOME}", "{ESC}"]
+
 For $sKey In $aHotKeys
     HotKeySet($sKey, "_NoHacerNada")
 Next
 
 ; Bucle principal
 While 1
-    Switch GUIGetMsg()
-        Case $GUI_EVENT_CLOSE, $idBotonUnlock
-            If _VerificarPassword() Then
+   Switch GUIGetMsg()
+	  Case $GUI_EVENT_CLOSE, $idBotonUnlock
+		 If _VerificarPassword() Then
 
-			   GUICtrlSetImage($idIcoPass, "shell32.dll", -297)
-			   GUISetBkColor(0x00FF00, $hGUI)
+			GUICtrlSetImage($idIcoPass, "shell32.dll", -297)
+			GUISetBkColor(0x00FF00, $hGUI)
 
-			   GUICtrlSetData($idTxtPass, "Desbloqueado")
-			   GUICtrlSetColor($idTxtPass, 0x0fff00)
+			GUICtrlSetData($idTxtPass, "Desbloqueado")
+			GUICtrlSetColor($idTxtPass, 0x0fff00)
 
-			   If $iFail > 0 Then
+			If $iFail > 0 Then
 
-				  GUICtrlSetData($idErrorLabel, "Ok.")
-				  GUICtrlSetColor($idErrorLabel, 0x0fff00)
-			   EndIf
-
-			   SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
-
-			   Sleep(400)
-
-			   ExitLoop
+			   GUICtrlSetData($idErrorLabel, "Ok.")
+			   GUICtrlSetColor($idErrorLabel, 0x0fff00)
 			EndIf
 
-			$iFail += 1
+			SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
 
-            GUICtrlSetData($idErrorLabel, "(" & $iFail & ") Incorrecto, prueba otra vez...")
-            GUICtrlSetData($idInput, "")
-			GUICtrlSetState($idInput, $GUI_FOCUS)
+			If $iOffExplorer = True Then
+			   Run(@WindowsDir & "\explorer.exe", "", @SW_HIDE)
+			EndIf
 
-			SoundPlay(@WindowsDir & "\media\chord.wav", $SOUND_NOWAIT)
+			Sleep(400)
 
-			GUICtrlSetImage($idIcoPass, "shell32.dll", -132)
-			GUISetBkColor(0xFF0000, $hGUI)
+			ExitLoop
+		 EndIf
 
-			Sleep(300)
+		 $iFail += 1
 
-			GUICtrlSetImage($idIcoPass, "shell32.dll", -245)
-			GUISetBkColor($iColorFondo, $hGUI)
+		 GUICtrlSetData($idErrorLabel, "(" & $iFail & ") Incorrecto, prueba otra vez...")
+		 GUICtrlSetData($idInput, "")
+		 GUICtrlSetState($idInput, $GUI_FOCUS)
 
-		 Case $idOff
-			Shutdown($SD_FORCE + $SD_POWERDOWN)
+		 SoundPlay(@WindowsDir & "\media\chord.wav", $SOUND_NOWAIT)
 
-		 Case $idRst
-			Shutdown($SD_FORCE + SD_REBOOT)
+		 GUICtrlSetImage($idIcoPass, "shell32.dll", -132)
+		 GUISetBkColor(0xFF0000, $hGUI)
 
-    EndSwitch
+		 Sleep(300)
+
+		 GUICtrlSetImage($idIcoPass, "shell32.dll", -245)
+		 GUISetBkColor($iColorFondo, $hGUI)
+
+	  Case $idOff
+		 Shutdown($SD_FORCE + $SD_POWERDOWN)
+
+	  Case $idRst
+		 Shutdown($SD_FORCE + SD_REBOOT)
+
+   EndSwitch
+
 WEnd
 
 ; Limpieza y salida
@@ -153,7 +166,7 @@ EndFunc
 
 Func _NoHacerNada()
     ; No acción para teclas bloqueadas
-	SoundPlay(@WindowsDir & "\media\Windows Error de hardware.wav", $SOUND_NOWAIT)
+	SoundPlay(@WindowsDir & "\media\Windows Hardware Fail.wav", $SOUND_NOWAIT)
  EndFunc
 
 Func _Hash_SHA1_SHA1_MD5($sInput)
