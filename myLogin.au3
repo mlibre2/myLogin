@@ -10,7 +10,7 @@
 ; Configuración global
 Global $sPasswordCorrecta = "0xBB7B85A436B38DFAE3756DDF54AF46CD"
 Global $iTransparencia = 150       ; 0-255 (transparente-opaco)
-Global $iTransparenciaPassGUI = 200 ; 0-255 (transparente-opaco) para ventana
+Global $iTransparenciaPassGUI = 180 ; 0-255 (transparente-opaco) para ventana
 Global $iColorTxt = 0xFFFFFF
 Global $iColorFondo = 0x000000     ; Color de fondo negro
 Global $iColorFondoPanel = 0x00696d
