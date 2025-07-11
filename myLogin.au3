@@ -16,13 +16,13 @@ Global $iColorFondo = 0x000000     ; Color de fondo negro
 Global $iColorFondoPanel = 0x00696d
 Global $iAnchoPass = 350           ; Ancho ventana
 Global $iAltoPass = 200            ; Alto ventana
-Global $iFail = 0, $iDisableExplorer = False, $iDisableTaskMgr = False
+Global $iFail = 0, $bDisableExplorer = False, $bDisableTaskMgr = True
 
-If $iDisableExplorer = True Then
+If $bDisableExplorer = True Then
    ShellExecute("cmd.exe", "cmd /c ping -n 5 localhost >nul & taskkill /f /im explorer.exe", "", "", @SW_HIDE)
 EndIf
 
-If $iDisableTaskMgr = True Then
+If $bDisableTaskMgr = True Then
    RegWrite("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System", "DisableTaskMgr", "REG_DWORD", "1")
 EndIf
 
@@ -125,11 +125,11 @@ While 1
 
 			SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
 
-			If $iDisableExplorer = True Then
+			If $bDisableExplorer = True Then
 			   Run(@WindowsDir & "\explorer.exe", "", @SW_HIDE)
 			EndIf
 
-			If $iDisableTaskMgr = True Then
+			If $bDisableTaskMgr = True Then
 			   RegWrite("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System", "DisableTaskMgr", "REG_DWORD", "0")
 			EndIf
 
