@@ -44,7 +44,7 @@ Local $idTxtPass = GUICtrlCreateLabel("Sistema bloqueado", 10, 45, $iAnchoPass -
 GUICtrlSetFont(-1, 12, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
 GUICtrlSetColor(-1, $iColorTxt)
 
-GUICtrlCreateLabel("Escribe la palabra mágica:", 10, 65, $iAnchoPass - 10, 20, $SS_CENTER)
+Local $idTxtMsg = GUICtrlCreateLabel("Escribe la palabra mágica:", 10, 65, $iAnchoPass - 10, 20, $SS_CENTER)
 GUICtrlSetFont(-1, 10, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
 GUICtrlSetColor(-1, $iColorTxt)
 
@@ -112,10 +112,11 @@ While 1
 			GUICtrlSetData($idTxtPass, "Desbloqueado")
 			GUICtrlSetColor($idTxtPass, 0x0fff00)
 
+			GUICtrlSetData($idTxtMsg, "")
+
 			If $iFail > 0 Then
 
-			   GUICtrlSetData($idErrorLabel, "Ok.")
-			   GUICtrlSetColor($idErrorLabel, 0x0fff00)
+			   GUICtrlSetData($idErrorLabel, "")
 			EndIf
 
 			SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
