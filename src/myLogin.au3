@@ -52,7 +52,7 @@ Func _ProcesarParametros()
    Next
 
    If $sPasswordCorrecta = "" Then
-	  MsgBox($MB_ICONERROR, "Error: Parametro faltante", "Debes añadir un hash, ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD")
+	  MsgBox($MB_ICONERROR, "Error: Parametro faltante", "Debes añadir un hash, ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD" & @CRLF & @CRLF & "Para generar uno usa el parametro:" & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
 	  Exit
    EndIf
 
