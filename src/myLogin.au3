@@ -1,3 +1,14 @@
+#pragma compile(FileDescription, Login segundario para bloquear/desbloquear pantalla)
+#pragma compile(ProductName, myLogin)
+#pragma compile(ProductVersion, 1.0)
+#pragma compile(LegalCopyright, © by mlibre2)
+#pragma compile(FileVersion, 1.0)
+#pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
+
+Global $sVersion = "1.0"
+
+#NoTrayIcon
+
 #include <GUIConstantsEx.au3>
 #include <WindowsConstants.au3>
 #include <StaticConstants.au3>
@@ -73,7 +84,7 @@ Func _ProcesarParametros()
 EndFunc
 
 If $bDisableExplorer = True Then
-   Run("cmd /c ping -n 5 localhost >nul & taskkill /f /im explorer.exe", "", "", @SW_HIDE)
+   Run("cmd /c taskkill /f /im explorer.exe", "", "", @SW_HIDE)
 EndIf
 
 If $bDisableTaskMgr = True Then
@@ -90,13 +101,13 @@ WinSetTrans($hGUI, "", $iTransparencia)
 GUISetState(@SW_SHOW, $hGUI)
 
 ; Crear ventana de contraseña (centrada)
-Local $hPassGUI = GUICreate("Acceso Restringido", $iAnchoPass, $iAltoPass, -1, -1, $WS_POPUP, $WS_EX_TOPMOST, $hGUI)
+Local $hPassGUI = GUICreate("", $iAnchoPass, $iAltoPass, -1, -1, $WS_POPUP, $WS_EX_TOPMOST, $hGUI)
 GUISetBkColor($iBkColorPanel, $hPassGUI)
 WinSetTrans($hPassGUI, "", $iTransparenciaPassGUI) ; Establecer transparencia para la ventana
 
 ; Posicionar controles
 Local $idIcoPass = GUICtrlCreateIcon("shell32.dll", -245, ($iAnchoPass - 32) / 2, 10, 32, 32)
-GUICtrlSetTip(-1, "¡Virus detectado!")
+GUICtrlSetTip(-1, "¡Acceso Restringido!")
 
 Local $idTxtPass = GUICtrlCreateLabel("Sistema bloqueado", 10, 45, $iAnchoPass - 10, 20, $SS_CENTER)
 GUICtrlSetFont(-1, 12, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
@@ -122,22 +133,26 @@ GUICtrlCreateLabel("Desbloquear", 280, $topTxtBoton)
 GUICtrlSetFont(-1, 8)
 GUICtrlSetColor(-1, $iStyle > 0 ? $iColorTxt : 0x000000)
 
-Local $idOff = GUICtrlCreateButton(-1, 20, $topIcoBoton, 40, 40, $BS_ICON)
+Local $idPowerOff = GUICtrlCreateButton(-1, 20, $topIcoBoton, 40, 40, $BS_ICON)
 GUICtrlSetImage(-1, "shell32.dll", -28)
 ;~ GUICtrlSetTip(-1, "Apagar")
 GUICtrlCreateLabel("Apagar", 22, $topTxtBoton)
 GUICtrlSetFont(-1, 8)
 GUICtrlSetColor(-1, $iStyle > 0 ? $iColorTxt : 0x000000)
 
-Local $idRst = GUICtrlCreateButton(-1, 65, $topIcoBoton, 40, 40, $BS_ICON)
+Local $idReboot = GUICtrlCreateButton(-1, 65, $topIcoBoton, 40, 40, $BS_ICON)
 GUICtrlSetImage(-1, "shell32.dll", -239)
 ;~ GUICtrlSetTip(-1, "Reiniciar")
 GUICtrlCreateLabel("Reiniciar", 65, $topTxtBoton)
 GUICtrlSetFont(-1, 8)
 GUICtrlSetColor(-1, $iStyle > 0 ? $iColorTxt : 0x000000)
 
-GUICtrlCreateLabel("Winlogon " & _Hora(), 140, 160)
+GUICtrlCreateLabel("Inicio " & _Hora(), 140, 160)
 GUICtrlSetFont(-1, 8, $FW_NORMAL, $GUI_FONTNORMAL, "Consolas")
+GUICtrlSetColor(-1, $iStyle > 0 ? $iColorTxt : 0x000000)
+
+GUICtrlCreateLabel("MyLogin v" & $sVersion, 295, 5)
+GUICtrlSetFont(-1, 6, $FW_NORMAL, $GUI_FONTNORMAL, "Consolas")
 GUICtrlSetColor(-1, $iStyle > 0 ? $iColorTxt : 0x000000)
 
 SoundPlay(@WindowsDir & "\media\tada.wav", $SOUND_NOWAIT)
@@ -206,10 +221,10 @@ While 1
 		 GUICtrlSetImage($idIcoPass, "shell32.dll", -245)
 		 GUISetBkColor($iBkColor, $hGUI)
 
-	  Case $idOff
+	  Case $idPowerOff
 		 Shutdown($SD_FORCE + $SD_POWERDOWN)
 
-	  Case $idRst
+	  Case $idReboot
 		 Shutdown($SD_FORCE + SD_REBOOT)
 
    EndSwitch
