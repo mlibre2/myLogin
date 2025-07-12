@@ -26,20 +26,7 @@ Func _ProcesarParametros()
    For $i = 1 To $CmdLine[0]
 	  Switch $CmdLine[$i]
 		 Case "/GenerateHash", "/gh"
-			Local $sPass = InputBox("Generador de Hash", "Introduce la contraseña para generar el hash:" & @CRLF & @CRLF & "- Debe tener al menos 2 caracteres" & @CRLF & "- Sin espacios vacios", "", "*")
-
-			; Validaciones
-			If StringLen($sPass) < 2 Then
-			   MsgBox(48, "Error", "La contraseña debe tener al menos 2 caracteres")
-			   Exit
-			ElseIf StringInStr($sPass, " ") Then
-			   MsgBox(48, "Error", "La contraseña no puede contener espacios")
-			   Exit
-			EndIf
-
-			If Not @error Then
-			   _GenerarNuevoHash($sPass)
-			EndIf
+			_GenerarNuevoHash()
 			Exit
 
 		 Case "/PassHash", "/ph"
@@ -71,7 +58,7 @@ Func _ProcesarParametros()
 EndFunc
 
 If $bDisableExplorer = True Then
-   ShellExecute("cmd.exe", "cmd /c ping -n 5 localhost >nul & taskkill /f /im explorer.exe", "", "", @SW_HIDE)
+   Run("cmd /c ping -n 5 localhost >nul & taskkill /f /im explorer.exe", "", "", @SW_HIDE)
 EndIf
 
 If $bDisableTaskMgr = True Then
@@ -254,6 +241,30 @@ Func _Hora()
    Return $h24 & ":" & @MIN & " " & $apm & "m"
 EndFunc
 
-Func _GenerarNuevoHash($sInput)
+Func _GenerarNuevoHash()
+   Local $bValida = False
+
+   ; Bucle hasta que se ingrese una contraseña válida
+   While Not $bValida
+	  $sInput = InputBox("Generador de Hash", "Introduce la contraseña para generar el hash:" & @CRLF & @CRLF & "- Debe tener al menos 2 caracteres" & @CRLF & "- Sin espacios vacios", "", "*")
+
+	  ; Si el usuario cancela
+	  If @error Then
+		 MsgBox(64, "Información", "Generación de hash cancelada")
+	  EndIf
+
+	  ; Validaciones
+	  If StringLen($sInput) < 2 Then
+		 MsgBox(48, "Error", "La contraseña debe tener al menos 2 caracteres")
+	  ElseIf StringIsSpace($sInput) Then
+		 MsgBox(48, "Error", "La contraseña no puede contener solo espacios")
+	  ElseIf StringInStr($sInput, " ") Then
+		 MsgBox(48, "Error", "La contraseña no puede contener espacios")
+	  Else
+		 $bValida = True
+	  EndIf
+   WEnd
+
+   ; Generar y mostrar el hash
    InputBox("Hash generado", "Has introducido la siguiente contraseña:" & @CRLF & @CRLF & $sInput & @CRLF & @CRLF & "Su nuevo hash es:", _Hash_SHA1_SHA1_MD5($sInput))
 EndFunc
