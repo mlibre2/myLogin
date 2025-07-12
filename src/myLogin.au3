@@ -10,14 +10,15 @@
 
 ; Configuración global
 Global $sPasswordCorrecta = ""
-Global $iTransparencia = 150       ; 0-255 (transparente-opaco)
-Global $iTransparenciaPassGUI = 180 ; 0-255 (transparente-opaco) para ventana
-Global $iColorTxt = 0xFFFFFF
-Global $iColorFondo = 0x000000     ; Color de fondo negro
-Global $iColorFondoPanel = 0x00696d
-Global $iAnchoPass = 350           ; Ancho ventana
-Global $iAltoPass = 200            ; Alto ventana
-Global $iFail = 0
+Global $iTransparencia = 150       	; 0-255 (transparente-opaco)
+Global $iTransparenciaPassGUI = 180	; 0-255 (transparente-opaco) para ventana
+Global $iColorTxt = 0xFFFFFF		; Color del texto
+Global $iBkColor = 0x000000     	; Color de fondo (full)
+Global $iBkColorPanel = 0xFFFFFF	; Color de fondo (ventana)
+Global $iAnchoPass = 350           	; Ancho ventana
+Global $iAltoPass = 200            	; Alto ventana
+Global $iFail = 0					; Intentos fallidos
+Global $iStyle = 0					; Estilo de colores (1=dark/2=aqua)
 Global $bDisableExplorer = False, $bDisableTaskMgr = False
 
 ; ...línea de comandos
@@ -48,6 +49,19 @@ Func _ProcesarParametros()
 		 Case "/DisableExplorer", "/de"
 			$bDisableExplorer = True
 
+		 Case "/Style", "/st"
+			If $i + 1 <= $CmdLine[0] Then
+			   $iStyle = $CmdLine[$i + 1]
+			   $i += 1
+
+			   Switch $iStyle
+				  Case "1"	; dark
+					 $iBkColorPanel = 0x050505
+				  Case "2"	; aqua
+					 $iBkColorPanel = 0x00696D
+				EndSwitch
+			EndIf
+
 	  EndSwitch
    Next
 
@@ -71,13 +85,13 @@ If _Singleton("VentanaBloqueoPantalla", 1) = 0 Then Exit
 
 ; Crear ventana principal (fullscreen)
 Local $hGUI = GUICreate("", @DesktopWidth, @DesktopHeight, 0, 0, $WS_POPUP, BitOR($WS_EX_TOPMOST, $WS_EX_TOOLWINDOW))
-GUISetBkColor($iColorFondo, $hGUI)
+GUISetBkColor($iBkColor, $hGUI)
 WinSetTrans($hGUI, "", $iTransparencia)
 GUISetState(@SW_SHOW, $hGUI)
 
 ; Crear ventana de contraseña (centrada)
 Local $hPassGUI = GUICreate("Acceso Restringido", $iAnchoPass, $iAltoPass, -1, -1, $WS_POPUP, $WS_EX_TOPMOST, $hGUI)
-GUISetBkColor($iColorFondoPanel, $hPassGUI)
+GUISetBkColor($iBkColorPanel, $hPassGUI)
 WinSetTrans($hPassGUI, "", $iTransparenciaPassGUI) ; Establecer transparencia para la ventana
 
 ; Posicionar controles
@@ -86,17 +100,17 @@ GUICtrlSetTip(-1, "¡Virus detectado!")
 
 Local $idTxtPass = GUICtrlCreateLabel("Sistema bloqueado", 10, 45, $iAnchoPass - 10, 20, $SS_CENTER)
 GUICtrlSetFont(-1, 12, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
-GUICtrlSetColor(-1, $iColorTxt)
+GUICtrlSetColor(-1, $iStyle > 0 ? $iColorTxt : 0x000000)
 
 Local $idTxtMsg = GUICtrlCreateLabel("Escribe la palabra mágica:", 10, 65, $iAnchoPass - 10, 20, $SS_CENTER)
 GUICtrlSetFont(-1, 10, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
-GUICtrlSetColor(-1, $iColorTxt)
+GUICtrlSetColor(-1, $iStyle > 0 ? $iColorTxt : 0x000000)
 
 Local $idInput = GUICtrlCreateInput("", 50, 90, $iAnchoPass - 100, 20, $ES_PASSWORD)
 GUICtrlSetState(-1, $GUI_FOCUS)
 
 Local $idErrorLabel = GUICtrlCreateLabel("", 10, 120, $iAnchoPass - 20, 20, $SS_CENTER)
-GUICtrlSetColor(-1, 0xffec00) ; rojo=0xFF0000
+GUICtrlSetColor(-1, $iStyle > 0 ? 0xFFEC00 : 0xFF0000) ; rojo/amarillo
 GUICtrlSetFont(-1, 10, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
 
 Local $topIcoBoton = 146, $topTxtBoton = 185
@@ -106,27 +120,25 @@ GUICtrlSetImage(-1, "shell32.dll", -300)
 ;~ GUICtrlSetTip(-1, "Desbloquear")
 GUICtrlCreateLabel("Desbloquear", 280, $topTxtBoton)
 GUICtrlSetFont(-1, 8)
-GUICtrlSetColor(-1, $iColorTxt)
-
-;~ GUICtrlCreateButton("Desbloquear", ($iAnchoPass - 100) / 2, 150, 100, 30)
+GUICtrlSetColor(-1, $iStyle > 0 ? $iColorTxt : 0x000000)
 
 Local $idOff = GUICtrlCreateButton(-1, 20, $topIcoBoton, 40, 40, $BS_ICON)
 GUICtrlSetImage(-1, "shell32.dll", -28)
 ;~ GUICtrlSetTip(-1, "Apagar")
 GUICtrlCreateLabel("Apagar", 22, $topTxtBoton)
 GUICtrlSetFont(-1, 8)
-GUICtrlSetColor(-1, $iColorTxt)
+GUICtrlSetColor(-1, $iStyle > 0 ? $iColorTxt : 0x000000)
 
 Local $idRst = GUICtrlCreateButton(-1, 65, $topIcoBoton, 40, 40, $BS_ICON)
 GUICtrlSetImage(-1, "shell32.dll", -239)
 ;~ GUICtrlSetTip(-1, "Reiniciar")
 GUICtrlCreateLabel("Reiniciar", 65, $topTxtBoton)
 GUICtrlSetFont(-1, 8)
-GUICtrlSetColor(-1, $iColorTxt)
+GUICtrlSetColor(-1, $iStyle > 0 ? $iColorTxt : 0x000000)
 
 GUICtrlCreateLabel("Winlogon " & _Hora(), 140, 160)
 GUICtrlSetFont(-1, 8, $FW_NORMAL, $GUI_FONTNORMAL, "Consolas")
-GUICtrlSetColor(-1, $iColorTxt)
+GUICtrlSetColor(-1, $iStyle > 0 ? $iColorTxt : 0x000000)
 
 SoundPlay(@WindowsDir & "\media\tada.wav", $SOUND_NOWAIT)
 
@@ -151,10 +163,10 @@ While 1
 		 If _VerificarPassword() Then
 
 			GUICtrlSetImage($idIcoPass, "shell32.dll", -297)
-			GUISetBkColor(0x00FF00, $hGUI)
+			GUISetBkColor(0x0FFF00, $hGUI)	; verde
 
 			GUICtrlSetData($idTxtPass, "Desbloqueado")
-			GUICtrlSetColor($idTxtPass, 0x0fff00)
+			GUICtrlSetColor($idTxtPass, $iStyle > 0 ? 0x0FFF00 : 0x0F9800) ; verde claro/oscuro
 
 			GUICtrlSetData($idTxtMsg, "")
 
@@ -187,12 +199,12 @@ While 1
 		 SoundPlay(@WindowsDir & "\media\chord.wav", $SOUND_NOWAIT)
 
 		 GUICtrlSetImage($idIcoPass, "shell32.dll", -132)
-		 GUISetBkColor(0xFF0000, $hGUI)
+		 GUISetBkColor(0xFF0000, $hGUI)	; rojo
 
 		 Sleep(300)
 
 		 GUICtrlSetImage($idIcoPass, "shell32.dll", -245)
-		 GUISetBkColor($iColorFondo, $hGUI)
+		 GUISetBkColor($iBkColor, $hGUI)
 
 	  Case $idOff
 		 Shutdown($SD_FORCE + $SD_POWERDOWN)
