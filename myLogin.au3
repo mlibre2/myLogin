@@ -8,7 +8,7 @@
 #include <Crypt.au3>
 
 ; Configuración global
-Global $sPasswordCorrecta = "0xBB7B85A436B38DFAE3756DDF54AF46CD"
+Global $sPasswordCorrecta = ""
 Global $iTransparencia = 150       ; 0-255 (transparente-opaco)
 Global $iTransparenciaPassGUI = 180 ; 0-255 (transparente-opaco) para ventana
 Global $iColorTxt = 0xFFFFFF
@@ -16,7 +16,59 @@ Global $iColorFondo = 0x000000     ; Color de fondo negro
 Global $iColorFondoPanel = 0x00696d
 Global $iAnchoPass = 350           ; Ancho ventana
 Global $iAltoPass = 200            ; Alto ventana
-Global $iFail = 0, $bDisableExplorer = False, $bDisableTaskMgr = True
+Global $iFail = 0
+Global $bDisableExplorer = False, $bDisableTaskMgr = False
+
+; ...línea de comandos
+_ProcesarParametros()
+
+Func _ProcesarParametros()
+   For $i = 1 To $CmdLine[0]
+	  Switch $CmdLine[$i]
+		 Case "/GenerateHash", "/gh"
+			Local $sPass = InputBox("Generador de Hash", "Introduce la contraseña para generar el hash:" & @CRLF & @CRLF & "- Debe tener al menos 2 caracteres" & @CRLF & "- Sin espacios vacios", "", "*")
+
+			; Validaciones
+			If StringLen($sPass) < 2 Then
+			   MsgBox(48, "Error", "La contraseña debe tener al menos 2 caracteres")
+			   Exit
+			ElseIf StringInStr($sPass, " ") Then
+			   MsgBox(48, "Error", "La contraseña no puede contener espacios")
+			   Exit
+			EndIf
+
+			If Not @error Then
+			   _GenerarNuevoHash($sPass)
+			EndIf
+			Exit
+
+		 Case "/PassHash", "/ph"
+			If $i + 1 <= $CmdLine[0] Then
+			   $sPasswordCorrecta = $CmdLine[$i + 1]
+			   $i += 1 ; Saltamos al siguiente parámetro
+
+			   ; Validación básica del hash
+			   If StringLen($sPasswordCorrecta) <> 34 Or StringLeft($sPasswordCorrecta, 2) <> "0x" Then
+				  MsgBox(16, "Error: Formato de hash inválido", "Debe ser 0x seguido de 32 caracteres hex." & @CRLF & "ejemplo:" & @CRLF & "myLogin.exe /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD")
+				  Exit
+			   EndIf
+			EndIf
+
+		 Case "/DisableTaskMgr", "/dt"
+			$bDisableTaskMgr = True
+
+		 Case "/DisableExplorer", "/de"
+			$bDisableExplorer = True
+
+	  EndSwitch
+   Next
+
+   If $sPasswordCorrecta = "" Then
+	  MsgBox(16, "Error: Parametro faltante", "Debes añadir un hash, ejemplo:" & @CRLF & "myLogin.exe /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD")
+	  Exit
+   EndIf
+
+EndFunc
 
 If $bDisableExplorer = True Then
    ShellExecute("cmd.exe", "cmd /c ping -n 5 localhost >nul & taskkill /f /im explorer.exe", "", "", @SW_HIDE)
@@ -200,4 +252,8 @@ Func _Hora()
    EndIf
 
    Return $h24 & ":" & @MIN & " " & $apm & "m"
+EndFunc
+
+Func _GenerarNuevoHash($sInput)
+   InputBox("Hash generado", "Has introducido la siguiente contraseña:" & @CRLF & @CRLF & $sInput & @CRLF & @CRLF & "Su nuevo hash es:", _Hash_SHA1_SHA1_MD5($sInput))
 EndFunc
