@@ -1,10 +1,11 @@
 #include <GUIConstantsEx.au3>
 #include <WindowsConstants.au3>
-#include <EditConstants.au3>
-#include <Misc.au3>
 #include <StaticConstants.au3>
 #include <ButtonConstants.au3>
 #include <AutoItConstants.au3>
+#include <MsgBoxConstants.au3>
+#include <EditConstants.au3>
+#include <Misc.au3>
 #include <Crypt.au3>
 
 ; Configuración global
@@ -36,7 +37,7 @@ Func _ProcesarParametros()
 
 			   ; Validación básica del hash
 			   If StringLen($sPasswordCorrecta) <> 34 Or StringLeft($sPasswordCorrecta, 2) <> "0x" Then
-				  MsgBox(16, "Error: Formato de hash inválido", "El hash debe comenzar con 0x seguido de 32 caracteres hex." & @CRLF & "ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD" & @CRLF & @CRLF & "Para generar uno usa el parametro:" & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
+				  MsgBox($MB_ICONERROR, "Error: Formato de hash inválido", "El hash debe comenzar con 0x seguido de 32 caracteres hex." & @CRLF & "ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD" & @CRLF & @CRLF & "Para generar uno usa el parametro:" & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
 				  Exit
 			   EndIf
 			EndIf
@@ -51,7 +52,7 @@ Func _ProcesarParametros()
    Next
 
    If $sPasswordCorrecta = "" Then
-	  MsgBox(16, "Error: Parametro faltante", "Debes añadir un hash, ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD")
+	  MsgBox($MB_ICONERROR, "Error: Parametro faltante", "Debes añadir un hash, ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD")
 	  Exit
    EndIf
 
@@ -250,17 +251,17 @@ Func _GenerarNuevoHash()
 
 	  ; Si el usuario cancela
 	  If @error Then
-		 MsgBox(64, "Información", "Generación de hash cancelada")
+		 MsgBox($MB_ICONINFORMATION, "Información", "Generación de hash cancelada")
 		 Exit
 	  EndIf
 
 	  ; Validaciones
 	  If StringLen($sInput) < 2 Then
-		 MsgBox(48, "Error", "La contraseña debe tener al menos 2 caracteres")
+		 MsgBox($MB_ICONWARNING, "Error", "La contraseña debe tener al menos 2 caracteres")
 	  ElseIf StringIsSpace($sInput) Then
-		 MsgBox(48, "Error", "La contraseña no puede contener solo espacios")
+		 MsgBox($MB_ICONWARNING, "Error", "La contraseña no puede contener solo espacios")
 	  ElseIf StringInStr($sInput, " ") Then
-		 MsgBox(48, "Error", "La contraseña no puede contener espacios")
+		 MsgBox($MB_ICONWARNING, "Error", "La contraseña no puede contener espacios")
 	  Else
 		 $bValida = True
 	  EndIf
