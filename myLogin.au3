@@ -36,7 +36,7 @@ Func _ProcesarParametros()
 
 			   ; Validación básica del hash
 			   If StringLen($sPasswordCorrecta) <> 34 Or StringLeft($sPasswordCorrecta, 2) <> "0x" Then
-				  MsgBox(16, "Error: Formato de hash inválido", "Debe ser 0x seguido de 32 caracteres hex." & @CRLF & "ejemplo:" & @CRLF & "myLogin.exe /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD")
+				  MsgBox(16, "Error: Formato de hash inválido", "El hash debe comenzar con 0x seguido de 32 caracteres hex." & @CRLF & "ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD" & @CRLF & @CRLF & "Para generar uno usa el parametro:" & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
 				  Exit
 			   EndIf
 			EndIf
@@ -51,7 +51,7 @@ Func _ProcesarParametros()
    Next
 
    If $sPasswordCorrecta = "" Then
-	  MsgBox(16, "Error: Parametro faltante", "Debes añadir un hash, ejemplo:" & @CRLF & "myLogin.exe /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD")
+	  MsgBox(16, "Error: Parametro faltante", "Debes añadir un hash, ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD")
 	  Exit
    EndIf
 
@@ -251,6 +251,7 @@ Func _GenerarNuevoHash()
 	  ; Si el usuario cancela
 	  If @error Then
 		 MsgBox(64, "Información", "Generación de hash cancelada")
+		 Exit
 	  EndIf
 
 	  ; Validaciones
