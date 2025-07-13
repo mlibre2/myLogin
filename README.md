@@ -48,6 +48,35 @@ Primeramente debes crear un Hash para abrir el login, el programa dispone de una
 
 Dirígete a la sección de [lanzamientos](https://github.com/mlibre2/myLogin/releases) donde estarán disponibles las últimas versiones compiladas.
 
+## ¿Cómo lo instalo para que inicie de forma automática al iniciar sesión y/o sistema?
+
+| Manera | Proceso | Dificultad | Velocidad | Recomendado | Oculto |
+|------ |-----|-----|-----|-----|-----|
+| Winlogon | Regedit | Alta | Rapida | :heavy_check_mark: | :heavy_check_mark: |
+| Logon Scripts | Gpedit | Media | Media | :heavy_check_mark: | :heavy_check_mark: |
+| Run StartUp | Windows | Baja | Media | :heavy_check_mark: | :x: |
+| Tarea Programada | Windows | Baja | Lenta | :x: | :x: |
+
+- **Winlogon**: es la manera más rápida que puedas iniciar el programa una vez iniciado el proceso ``explorer.exe`` en este momento es donde lo iniciamos justo después de mostrar el escritorio.
+
+  Para inyectarlo, abre ``regedit`` y edita ``Shell`` quedaria asi como ejemplo:
+
+  ```
+  [HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon]
+  "Shell"="explorer.exe, \"C:\\myLogin.exe /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD\""
+  ```
+
+  
+- **Logon Scripts**: abre ``gpedit`` ve a -> Config. Usuario -> Config. Windows -> Script -> Iniciar Sesión
+
+  Agrega la ruta del programa y parametros...
+- **Run StartUp**: crea un acceso directo con el parámetro esencial ``/PassHash`` y lo pegas aquí ``C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp``
+- **Tarea Programada**: suele ejecutarse con demoras, personalmente no me simpatiza.
+
+> [!TIP]
+> ¿Qué es eso de **Oculto**?
+> es una forma de impedir que terceras personas puedan deshabilitar el inicio automático del programa por medio del Administrador de Tareas.
+
 ## ¿Cómo lo compilo manualmente?
 
 Puedes hacer uso del archivo [CMD](https://github.com/mlibre2/myLogin/tree/main/compile) cuyos requisitos es tener instalado el AutoIt3 con Aut2Exe
