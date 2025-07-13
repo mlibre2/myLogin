@@ -43,6 +43,16 @@ Usa tu Hash para iniciar el programa:
 - ``/DisableExplorer`` ó ``/de``
 
   Con este parámetro podrás deshabilitar temporalmente el Explorador de Windows, impidiendo que no aparezca la barra de tareas, iconos del escritorio ni sea posible abrir el menú inicio.
+
+
+- ``/DisablePowerOff`` ó ``/dp``
+  
+    Con este parámetro podrás deshabilitar el botón de Apagar **(disponible desde la versión [1.1](https://github.com/mlibre2/myLogin/releases/tag/1.1))**
+
+
+- ``/DisableReboot`` ó ``/dr``
+  
+    Con este parámetro podrás deshabilitar el botón de Reiniciar **(disponible desde la versión [1.1](https://github.com/mlibre2/myLogin/releases/tag/1.1))**
   
 
 - ``/Style`` ó ``/st``
