@@ -1,11 +1,11 @@
 #pragma compile(FileDescription, Login segundario para bloquear/desbloquear pantalla)
 #pragma compile(ProductName, myLogin)
-#pragma compile(ProductVersion, 1.0)
+#pragma compile(ProductVersion, 1.1)
 #pragma compile(LegalCopyright, © by mlibre2)
-#pragma compile(FileVersion, 1.0)
+#pragma compile(FileVersion, 1.1)
 #pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
 
-Global $sVersion = "1.0"
+Global $sVersion = "1.1"
 
 #NoTrayIcon
 
@@ -30,7 +30,10 @@ Global $iAnchoPass = 350           	; Ancho ventana
 Global $iAltoPass = 200            	; Alto ventana
 Global $iFail = 0					; Intentos fallidos
 Global $iStyle = 0					; Estilo de colores (1=dark/2=aqua)
-Global $bDisableExplorer = False, $bDisableTaskMgr = False
+Global $bDisableExplorer = False	; Deshabilitar el Windows Explorer
+Global $bDisableTaskMgr = False		; Deshabilitar el Administrador de tareas
+Global $bDisablePowerOff = False	; Deshabilitar el bóton de Apagar sistema
+Global $bDisableReboot = False		; Deshabilitar el bóton de Reiniciar sistema
 
 ; ...línea de comandos
 _ProcesarParametros()
@@ -59,6 +62,12 @@ Func _ProcesarParametros()
 
 		 Case "/DisableExplorer", "/de"
 			$bDisableExplorer = True
+
+		 Case "/DisablePowerOff", "/dp"
+			$bDisablePowerOff = True
+
+		 Case "/DisableReboot", "/dr"
+			$bDisableReboot = True
 
 		 Case "/Style", "/st"
 			If $i + 1 <= $CmdLine[0] Then
@@ -135,6 +144,7 @@ GUICtrlSetColor(-1, $iStyle > 0 ? $iColorTxt : 0x000000)
 
 Local $idPowerOff = GUICtrlCreateButton(-1, 20, $topIcoBoton, 40, 40, $BS_ICON)
 GUICtrlSetImage(-1, "shell32.dll", -28)
+GUICtrlSetState(-1, $bDisablePowerOff ? $GUI_DISABLE : $GUI_ENABLE)
 ;~ GUICtrlSetTip(-1, "Apagar")
 GUICtrlCreateLabel("Apagar", 22, $topTxtBoton)
 GUICtrlSetFont(-1, 8)
@@ -142,6 +152,7 @@ GUICtrlSetColor(-1, $iStyle > 0 ? $iColorTxt : 0x000000)
 
 Local $idReboot = GUICtrlCreateButton(-1, 65, $topIcoBoton, 40, 40, $BS_ICON)
 GUICtrlSetImage(-1, "shell32.dll", -239)
+GUICtrlSetState(-1, $bDisableReboot ? $GUI_DISABLE : $GUI_ENABLE)
 ;~ GUICtrlSetTip(-1, "Reiniciar")
 GUICtrlCreateLabel("Reiniciar", 65, $topTxtBoton)
 GUICtrlSetFont(-1, 8)
