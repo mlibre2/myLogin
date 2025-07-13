@@ -1,34 +1,43 @@
-## myLogin
+## myLogin <img align="right" width="32" height="32" alt="Ico" src="https://github.com/user-attachments/assets/c8c08b6a-927c-4278-917a-c23b10e6491d" />
 
-<img width="800" height="600" alt="1" src="https://github.com/user-attachments/assets/bbc63ff2-34e8-44cf-a575-bc7b4ab930c4" />
+<img width="800" height="600" alt="Captura de Pantalla" src="https://github.com/user-attachments/assets/bbc63ff2-34e8-44cf-a575-bc7b4ab930c4" />
 
-Simple programa de código abierto para bloquear y/o desbloquear la pantalla del Escritorio de Windows con funcionalidades para desactivar teclas especificas del teclado y clic del mouse, imposibilitando hacer uso normal del sistema hasta que este sea liberado por una contraseña previamente creada por el usuario administrador.
+Simple programa de código abierto para bloquear/desbloquear la pantalla del Escritorio de Windows con opciones avanzadas:
+- Desactiva teclas específicas del teclado y clics del mouse
+- Impide el uso normal del sistema
+- Solo se desbloquea con una contraseña configurada por el administrador
 
-## ¿Cómo usar?
+## 🚀 ¿Cómo empezar/usar?
 
-Primeramente debes crear un Hash para abrir el login, el programa dispone de una serie de parámetros para poder generarlo, el primero es:
+### 1. Generar tu contraseña (Hash)
+Ejecuta el programa con el parámetro:
 
 - ``/GenerateHash`` ó ``/gh``
-  
-  Para hacer uso del parámetro, debes ejecutarlo de la siguiente manera:
+
+  Ejemplo:
   ``MyLogin.exe /GenerateHash``
-  
+
 > [!IMPORTANT]
-> Una vez ejecutado, sigas las instrucciones hasta obtener su Hash como este `0xBB7B85A436B38DFAE3756DDF54AF46CD`
-> guárdalo que lo vamos usar en el siguiente paso.
-  
+> Una vez ejecutado, sigas las instrucciones hasta obtener el Hash generado (ej: `0xBB7B85A436B38DFAE3756DDF54AF46CD`)
+> 🔐 Guardalo, será tu contraseña "cifrada", la usaremos para iniciar el programa.
+
+### 2. Iniciar el bloqueo
+Usa tu Hash para iniciar el programa:
 
 - ``/PassHash`` ó ``/ph``
 
-  Una vez generado el Hash ya puedes hacer uso de este parámetro, recuerda que este Hash es la Clave y/o Contraseña que añadiste anteriormente en texto plano. Si no la has generado no podrás abrir el programa ya que es requerido para poder desbloquearlo una vez abierto. Si ya lo generaste ya puedes iniciar el programa de la siguiente manera: ``MyLogin.exe /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD``
+  Ejemplo:
+  ``MyLogin.exe /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD``
+
+  Recuerda que este Hash es la Clave y/o Contraseña que añadiste anteriormente en texto plano. Si no la has generado no podrás abrir el programa ya que es requerido para poder desbloquearlo una vez abierto.
 
 > [!NOTE]
-> Los siguientes parámetros son opcionales, no son requeridos.
+> ⚙️ Los siguientes parámetros son opcionales, no son requeridos.
   
 
 - ``/DisableTaskMgr`` ó ``/dt``
 
-  Con este parámetro podrás deshabilitar el Administrador de Tareas para dificultar omitir el login, como por ejemplo finalizando el proceso.
+  Con este parámetro podrás deshabilitar el Administrador de Tareas para dificultar omitir el login, como por ejemplo finalizar el proceso.
   
 
 - ``/DisableExplorer`` ó ``/de``
@@ -38,44 +47,64 @@ Primeramente debes crear un Hash para abrir el login, el programa dispone de una
 
 - ``/Style`` ó ``/st``
 
-  Con este parámetro podrás elegir estilos disponibles como los son el modo dark (oscuro) y modo aqua que es de color celeste. De forma predeterminada el estilo es blanco.
+  Con este parámetro podrás cambiar el diseño (0=Blanco, 1=Oscuro, 2=Celeste)
 
-  Por ejemplo, habilitar modo dark:
+  Ejemplo, habilitar modo dark (oscuro):
 
   ``MyLogin.exe /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD /Style 1``
 
-## ¿Cómo lo descargo?
+  Ejemplo con todas las opciones:
+
+  ``MyLogin.exe /ph 0xBB7B85A436B38DFAE3756DDF54AF46CD /dt /de /st 1``
+
+## 📥 ¿Cómo lo descargo?
 
 Dirígete a la sección de [lanzamientos](https://github.com/mlibre2/myLogin/releases) donde estarán disponibles las últimas versiones compiladas.
 
-## ¿Cómo lo instalo para que inicie de forma automática al iniciar sesión y/o sistema?
+## 🔌 ¿Cómo lo instalo/configuro para que inicie de forma automática?
+### Métodos recomendados:
 
-| Manera | Proceso | Dificultad | Velocidad | Recomendado | Oculto |
+Una vez descargado tiene varias métodos de cómo ejecutarlo, elije una de ellas:
+
+| Método | Proceso | Dificultad | Velocidad | Recomendado | Oculto |
 |------ |-----|-----|-----|-----|-----|
 | Winlogon | Regedit | Alta | Rapida | :heavy_check_mark: | :heavy_check_mark: |
 | Logon Scripts | Gpedit | Media | Media | :heavy_check_mark: | :heavy_check_mark: |
 | Run StartUp | Windows | Baja | Media | :heavy_check_mark: | :x: |
 | Tarea Programada | Windows | Baja | Lenta | :x: | :x: |
 
-- **Winlogon**: es la manera más rápida que puedas iniciar el programa una vez iniciado el proceso ``explorer.exe`` en este momento es donde lo iniciamos justo después de mostrar el escritorio.
-
-  Para inyectarlo, abre ``regedit`` y edita ``Shell`` quedaria asi como ejemplo:
-
+1. **Winlogon**:
+   
+   es la manera más rápida de iniciar el programa una vez iniciado el proceso ``explorer.exe`` en este momento es donde se ejecuta justo después de mostrar el escritorio.
+   - Abre ``regedit``
+   - Ve a ``[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon]``
+   - Modifica la clave ``Shell``:
+     
+  Ejemplo:
   ```
-  [HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon]
   "Shell"="explorer.exe, \"C:\\myLogin.exe /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD\""
   ```
 
   
-- **Logon Scripts**: abre ``gpedit`` ve a -> Config. Usuario -> Config. Windows -> Script -> Iniciar Sesión
+2. **Logon Scripts**:
 
-  Agrega la ruta del programa y parametros...
-- **Run StartUp**: crea un acceso directo con el parámetro esencial ``/PassHash`` y lo pegas aquí ``C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp``
-- **Tarea Programada**: suele ejecutarse con demoras, personalmente no me simpatiza.
+   - Abre ``gpedit``
+   - Ve a -> ``Config. Usuario -> Config. Windows -> Script -> Iniciar Sesión``
+   - Agrega la ruta del programa y parametros...
+
+  
+3. **Run StartUp**:
+
+  - Crea un acceso directo en: ``C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp``
+
+    Cuyas propiedades quedarian asi: ``C:\myLogin.exe /ph 0xBB7B85A436B38DFAE3756DDF54AF46CD``
+   
+4. **Tarea Programada**:
+  
+   suele ejecutarse con demoras, personalmente no me simpatiza.
 
 > [!TIP]
-> ¿Qué es eso de **Oculto**?
-> es una forma de impedir que terceras personas puedan deshabilitar el inicio automático del programa por medio del Administrador de Tareas.
+> Para máxima seguridad, usa los métodos "Ocultos" (Winlogon o Scripts) que impiden que otros desactiven el programa fácilmente.
 
 ## ¿Cómo lo compilo manualmente?
 
