@@ -41,7 +41,7 @@ echo.
 echo.  Compilando...
 echo.
 
-start /wait "" "%_Aut2Exe_%" /in "%_fileName_%.au3" /out "%_fileName_%.exe" /comp 4 /pack
+start /wait "" "%_Aut2Exe_%" /in "%_fileName_%.au3" /out "%_fileName_%.exe" /comp 4 /nopack
 
 if exist "%_fileName_%.exe" (
     msg * Listo! Archivo compilado correctamente.
