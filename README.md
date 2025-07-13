@@ -29,7 +29,7 @@ Usa tu Hash para iniciar el programa:
   Ejemplo:
   ``MyLogin.exe /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD``
 
-  Recuerda que este Hash es la Clave y/o Contraseña que añadiste anteriormente en texto plano. Si no la has generado no podrás abrir el programa ya que es requerido para poder desbloquearlo una vez abierto.
+  Recuerda que este Hash es la Contraseña que añadiste anteriormente en texto plano pero "cifrada". Si no la has generado no podrás abrir el programa ya que es requerido para poder desbloquearlo una vez abierto, la contraseña que vas usar para desbloquearlo es la que ingresaste para generar el hash.
 
 > [!NOTE]
 > ⚙️ Los siguientes parámetros son opcionales, no son requeridos.
@@ -66,12 +66,12 @@ Dirígete a la sección de [lanzamientos](https://github.com/mlibre2/myLogin/rel
 
 Una vez descargado tiene varias métodos de cómo ejecutarlo, elije una de ellas:
 
-| Método | Proceso | Dificultad | Velocidad | Recomendado | Oculto |
-|------ |-----|-----|-----|-----|-----|
-| Winlogon | Regedit | Alta | Rapida | :heavy_check_mark: | :heavy_check_mark: |
-| Logon Scripts | Gpedit | Media | Media | :heavy_check_mark: | :heavy_check_mark: |
-| Run StartUp | Windows | Baja | Media | :heavy_check_mark: | :x: |
-| Tarea Programada | Windows | Baja | Lenta | :x: | :x: |
+| # | Método | Proceso | Dificultad | Velocidad | Recomendado | Oculto |
+|------|-----|-----|-----|-----|-----|-----|
+| 1 | Winlogon | Regedit | Alta | Rapida | :heavy_check_mark: | :heavy_check_mark: |
+| 2 | Logon Scripts | Gpedit | Media | Media | :heavy_check_mark: | :heavy_check_mark: |
+| 3 | Run StartUp | Windows | Baja | Media | :heavy_check_mark: | :x: |
+| 4 | Tarea Programada | Windows | Baja | Lenta | :x: | :x: |
 
 1. **Winlogon**:
    
@@ -95,13 +95,13 @@ Una vez descargado tiene varias métodos de cómo ejecutarlo, elije una de ellas
   
 3. **Run StartUp**:
 
-  - Crea un acceso directo en: ``C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp``
-
-    Cuyas propiedades quedarian asi: ``C:\myLogin.exe /ph 0xBB7B85A436B38DFAE3756DDF54AF46CD``
+   - Crea un acceso directo en: ``C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp``
+     
+     Cuyas propiedades quedarian asi: ``C:\myLogin.exe /ph 0xBB7B85A436B38DFAE3756DDF54AF46CD``
    
 4. **Tarea Programada**:
   
-   suele ejecutarse con demoras, personalmente no me simpatiza.
+   - suele ejecutarse con demoras, personalmente no me simpatiza.
 
 > [!TIP]
 > Para máxima seguridad, usa los métodos "Ocultos" (Winlogon o Scripts) que impiden que otros desactiven el programa fácilmente.
