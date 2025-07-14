@@ -98,7 +98,7 @@ Una vez descargado tiene varias métodos de cómo ejecutarlo, elije una de ellas
   
 2. **Logon Scripts**:
 
-   - Abre ``gpedit``
+   - Abre ``gpedit.msc``
    - Ve a -> ``Config. Usuario -> Config. Windows -> Script -> Iniciar Sesión``
    - Agrega la ruta del programa y parametros...
 
