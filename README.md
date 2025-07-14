@@ -92,7 +92,7 @@ Una vez descargado tiene varias métodos de cómo ejecutarlo, elije una de ellas
      
   Ejemplo:
   ```
-  explorer.exe, "C:\myLogin.exe" /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD"
+  explorer.exe, "C:\myLogin.exe" /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD
   ```
 
   
