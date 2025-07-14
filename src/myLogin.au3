@@ -1,11 +1,11 @@
 #pragma compile(FileDescription, Login segundario para bloquear/desbloquear pantalla)
 #pragma compile(ProductName, myLogin)
-#pragma compile(ProductVersion, 1.2)
+#pragma compile(ProductVersion, 1.3)
 #pragma compile(LegalCopyright, © by mlibre2)
-#pragma compile(FileVersion, 1.2)
+#pragma compile(FileVersion, 1.3)
 #pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
 
-Global $sVersion = "1.2"
+Global $sVersion = "1.3"
 
 #NoTrayIcon
 
@@ -28,8 +28,8 @@ Global $iBkColor = 0x000000     	; Color de fondo (full)
 Global $iBkColorPanel = 0xFFFFFF	; Color de fondo (ventana)
 Global $iAnchoPass = 350           	; Ancho ventana
 Global $iAltoPass = 200            	; Alto ventana
-Global $iFail = 0					; Intentos fallidos
-Global $iStyle = 0					; Estilo de colores (1=dark/2=aqua)
+Global $iFail = 0					; Intentos fallidos (login)
+Global $iStyle = 0					; Estilo de colores (0=blanco/1=dark(oscuro)/2=aqua)
 Global $bDisableExplorer = False	; Deshabilitar el Windows Explorer
 Global $bDisableTaskMgr = False		; Deshabilitar el Administrador de tareas
 Global $bDisablePowerOff = False	; Deshabilitar el bóton de Apagar sistema
@@ -52,7 +52,7 @@ Func _ProcesarParametros()
 
 			   ; Validación básica del hash
 			   If StringLen($sPasswordCorrecta) <> 34 Or StringLeft($sPasswordCorrecta, 2) <> "0x" Then
-				  MsgBox($MB_ICONERROR, "Error: Formato de hash inválido", "El hash debe comenzar con 0x seguido de 32 caracteres hex." & @CRLF & "ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD" & @CRLF & @CRLF & "Para generar uno usa el parametro:" & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
+				  MsgBox($MB_ICONERROR, "Error: Formato de hash inválido", "El hash debe comenzar con 0x seguido de 32 caracteres hex." & @CRLF & "ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD" & @CRLF & @CRLF & "Para generar uno, usa el parametro:" & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
 				  Exit
 			   EndIf
 			EndIf
@@ -86,14 +86,19 @@ Func _ProcesarParametros()
    Next
 
    If $sPasswordCorrecta = "" Then
-	  MsgBox($MB_ICONERROR, "Error: Parametro faltante", "Debes añadir un hash, ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD" & @CRLF & @CRLF & "Para generar uno usa el parametro:" & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
+	  Local $iBoton = MsgBox($IDRETRY, "Error: Parametro faltante", "Debes generar/añadir un hash, ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD" & @CRLF & @CRLF & "Para generar uno, usa el parametro:" & @CRLF & @CRLF & @ScriptName & " /GenerateHash" & @CRLF & @CRLF & @CRLF & "¿Desea generarlo ya?")
+
+	  If $iBoton = $IDYES Then
+		 _GenerarNuevoHash()
+	  EndIf
+
 	  Exit
    EndIf
 
 EndFunc
 
 If $bDisableExplorer = True Then
-   Run("cmd /c taskkill /f /im explorer.exe", "", "", @SW_HIDE)
+   Run("taskkill /f /im explorer.exe", "", "", @SW_HIDE)
 EndIf
 
 If $bDisableTaskMgr = True Then
@@ -233,10 +238,10 @@ While 1
 		 GUISetBkColor($iBkColor, $hGUI)
 
 	  Case $idPowerOff
-		 Run("cmd /c shutdown -s -f -t 0", "", "", @SW_HIDE)
+		 Run("shutdown -s -f -t 0", "", "", @SW_HIDE)
 
 	  Case $idReboot
-		 Run("cmd /c shutdown -r -f -t 0", "", "", @SW_HIDE)
+		 Run("shutdown -r -f -t 0", "", "", @SW_HIDE)
 
    EndSwitch
 
