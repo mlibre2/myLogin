@@ -9,7 +9,7 @@ Simple programa de código abierto para bloquear/desbloquear la pantalla del Esc
 
 ## 🚀 ¿Cómo empezar/usar?
 
-### 1. Generar tu contraseña (Hash)
+### 1. Genera tu contraseña (Hash)
 Ejecuta el programa con el parámetro:
 
 - ``/GenerateHash`` ó ``/gh``
@@ -74,7 +74,7 @@ Dirígete a la sección de [lanzamientos](https://github.com/mlibre2/myLogin/rel
 ## 🔌 ¿Cómo lo instalo/configuro para que inicie de forma automática?
 ### Métodos recomendados:
 
-Una vez descargado tiene varias métodos de cómo ejecutarlo, elije una de ellas:
+Tienes varios métodos de cómo auto-ejecutarlo, elije una de ellas:
 
 | # | Método | Proceso | Dificultad | Velocidad | Recomendado | Oculto |
 |------|-----|-----|-----|-----|-----|-----|
@@ -85,7 +85,7 @@ Una vez descargado tiene varias métodos de cómo ejecutarlo, elije una de ellas
 
 1. **Winlogon**:
    
-   es la manera más rápida de iniciar el programa una vez iniciado el proceso ``explorer.exe`` en este momento es donde se ejecuta justo después de mostrar el escritorio.
+   Es la manera más rápida de iniciar el programa, ya que abrirse el proceso ``explorer.exe``, en este momento se ejecuta justo después de mostrar el escritorio.
    - Abre ``regedit``
    - Ve a ``[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon]``
    - Modifica la clave ``Shell``:
@@ -99,8 +99,11 @@ Una vez descargado tiene varias métodos de cómo ejecutarlo, elije una de ellas
 2. **Logon Scripts**:
 
    - Abre ``gpedit.msc``
-   - Ve a -> ``Config. Usuario -> Config. Windows -> Script -> Iniciar Sesión``
-   - Agrega la ruta del programa y parametros...
+   - Ve a -> ``Config. Usuario -> Config. Windows -> Script -> Iniciar Sesión -> Agregar``
+   - En nombre del script: ``C:\myLogin.exe``
+   - Parámetros del script: ``/ph 0xBB7B85A436B38DFAE3756DDF54AF46CD``
+   - Aceptar
+   - Aplicar y Aceptar
 
   
 3. **Run StartUp**:
@@ -111,7 +114,14 @@ Una vez descargado tiene varias métodos de cómo ejecutarlo, elije una de ellas
    
 4. **Tarea Programada**:
   
-   - suele ejecutarse con demoras, personalmente no me simpatiza.
+   - Este método suele ejecutarse con demoras dependiendo de cuantos procesos y tareas tengas por delante, por ende no me simpatiza.
+     si aún consideras usarlo, has lo siguiente.
+      - Abre ``cmd``
+      - Ingresa ``schtasks /create /tn "myLogin" /tr "\"C:\myLogin.exe\" /ph 0xBB7B85A436B38DFAE3756DDF54AF46CD" /sc onlogon``
+      - Y presiona ENTER.
+      - Ya creado, "debería" ejecutarse cada vez que el usuario inicie sesión.
+        
+        Si deseas eliminarla, ingresa el comando: ``schtasks /delete /tn "myLogin" /f``
 
 > [!TIP]
 > Para máxima seguridad, usa los métodos "Ocultos" (Winlogon o Scripts) que impiden que otros desactiven el programa fácilmente.
