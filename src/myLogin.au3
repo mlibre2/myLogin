@@ -1,11 +1,11 @@
 #pragma compile(FileDescription, Login segundario para bloquear/desbloquear pantalla)
 #pragma compile(ProductName, myLogin)
-#pragma compile(ProductVersion, 1.1)
+#pragma compile(ProductVersion, 1.2)
 #pragma compile(LegalCopyright, © by mlibre2)
-#pragma compile(FileVersion, 1.1)
+#pragma compile(FileVersion, 1.2)
 #pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
 
-Global $sVersion = "1.1"
+Global $sVersion = "1.2"
 
 #NoTrayIcon
 
@@ -136,7 +136,7 @@ GUICtrlSetFont(-1, 10, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
 Local $topIcoBoton = 146, $topTxtBoton = 185
 
 Local $idBotonUnlock = GUICtrlCreateButton(-1, 290, $topIcoBoton, 40, 40, $BS_ICON)
-GUICtrlSetImage(-1, "shell32.dll", -300)
+GUICtrlSetImage(-1, "shell32.dll", -177)
 ;~ GUICtrlSetTip(-1, "Desbloquear")
 GUICtrlCreateLabel("Desbloquear", 280, $topTxtBoton)
 GUICtrlSetFont(-1, 8)
@@ -188,7 +188,7 @@ While 1
 	  Case $GUI_EVENT_CLOSE, $idBotonUnlock
 		 If _VerificarPassword() Then
 
-			GUICtrlSetImage($idIcoPass, "shell32.dll", -297)
+			GUICtrlSetImage($idIcoPass, "imageres.dll", -102)
 			GUISetBkColor(0x0FFF00, $hGUI)	; verde
 
 			GUICtrlSetData($idTxtPass, "Desbloqueado")
@@ -224,7 +224,7 @@ While 1
 
 		 SoundPlay(@WindowsDir & "\media\chord.wav", $SOUND_NOWAIT)
 
-		 GUICtrlSetImage($idIcoPass, "shell32.dll", -132)
+		 GUICtrlSetImage($idIcoPass, "imageres.dll", -101)
 		 GUISetBkColor(0xFF0000, $hGUI)	; rojo
 
 		 Sleep(300)
@@ -233,10 +233,10 @@ While 1
 		 GUISetBkColor($iBkColor, $hGUI)
 
 	  Case $idPowerOff
-		 Shutdown($SD_FORCE + $SD_POWERDOWN)
+		 Run("cmd /c shutdown -s -f -t 0", "", "", @SW_HIDE)
 
 	  Case $idReboot
-		 Shutdown($SD_FORCE + SD_REBOOT)
+		 Run("cmd /c shutdown -r -f -t 0", "", "", @SW_HIDE)
 
    EndSwitch
 
