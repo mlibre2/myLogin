@@ -1,11 +1,11 @@
 #pragma compile(FileDescription, Login segundario para bloquear/desbloquear pantalla)
 #pragma compile(ProductName, myLogin)
-#pragma compile(ProductVersion, 1.3)
+#pragma compile(ProductVersion, 1.4)
 #pragma compile(LegalCopyright, © by mlibre2)
-#pragma compile(FileVersion, 1.3)
+#pragma compile(FileVersion, 1.4)
 #pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
 
-Global $sVersion = "1.3"
+Global Const $sVersion = "1.4"
 
 #NoTrayIcon
 
@@ -20,7 +20,7 @@ Global $sVersion = "1.3"
 #include <Crypt.au3>
 
 ; Configuración global
-Global $sPasswordCorrecta = ""
+Global $sPassHash = ""
 Global $iTransparencia = 150       	; 0-255 (transparente-opaco)
 Global $iTransparenciaPassGUI = 180	; 0-255 (transparente-opaco) para ventana
 Global $iColorTxt = 0xFFFFFF		; Color del texto
@@ -35,6 +35,24 @@ Global $bDisableTaskMgr = False		; Deshabilitar el Administrador de tareas
 Global $bDisablePowerOff = False	; Deshabilitar el bóton de Apagar sistema
 Global $bDisableReboot = False		; Deshabilitar el bóton de Reiniciar sistema
 
+;~ verifica y evitar que se ejecute doble
+If (ProcessList(@ScriptName)[0][0] >= 2) Then
+
+   MsgBox($MB_ICONWARNING, @ScriptName, "El programa ya esta abierto...", 3)
+
+   Exit
+
+EndIf
+
+Global Const $sExplorer = "explorer.exe"
+Global $bProcessExists = False		; Verificar si un proceso existe
+
+If ProcessExists($sExplorer) Then
+   $bProcessExists = True
+Else
+   $bProcessExists = False
+EndIf
+
 ; ...línea de comandos
 _ProcesarParametros()
 
@@ -43,17 +61,21 @@ Func _ProcesarParametros()
 	  Switch $CmdLine[$i]
 		 Case "/GenerateHash", "/gh"
 			_GenerarNuevoHash()
-			Exit
+			If $bProcessExists Then
+			   Exit
+			EndIf
 
 		 Case "/PassHash", "/ph"
 			If $i + 1 <= $CmdLine[0] Then
-			   $sPasswordCorrecta = $CmdLine[$i + 1]
+			   $sPassHash = $CmdLine[$i + 1]
 			   $i += 1 ; Saltamos al siguiente parámetro
 
 			   ; Validación básica del hash
-			   If StringLen($sPasswordCorrecta) <> 34 Or StringLeft($sPasswordCorrecta, 2) <> "0x" Then
-				  MsgBox($MB_ICONERROR, "Error: Formato de hash inválido", "El hash debe comenzar con 0x seguido de 32 caracteres hex." & @CRLF & "ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD" & @CRLF & @CRLF & "Para generar uno, usa el parametro:" & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
-				  Exit
+			   If StringLen($sPassHash) <> 34 Or StringLeft($sPassHash, 2) <> "0x" Then
+				  MsgBox($MB_ICONERROR, "Error: Formato de hash inválido", "El hash debe comenzar con 0x seguido de 32 caracteres hex." & @CRLF & "ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & "Para generar uno, usa el parametro:" & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
+				  If $bProcessExists Then
+					 Exit
+				  EndIf
 			   EndIf
 			EndIf
 
@@ -85,23 +107,44 @@ Func _ProcesarParametros()
 	  EndSwitch
    Next
 
-   If $sPasswordCorrecta = "" Then
-	  Local $iBoton = MsgBox($IDRETRY, "Error: Parametro faltante", "Debes generar/añadir un hash, ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD" & @CRLF & @CRLF & "Para generar uno, usa el parametro:" & @CRLF & @CRLF & @ScriptName & " /GenerateHash" & @CRLF & @CRLF & @CRLF & "¿Desea generarlo ya?")
+   If $sPassHash = "" Then
+	  Local $iBoton = MsgBox($IDRETRY, "Error: Parametro faltante", "Debes generar/añadir un hash, ejemplo:" & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & "Para generar uno, usa el parametro:" & @CRLF & @CRLF & @ScriptName & " /GenerateHash" & @CRLF & @CRLF & @CRLF & "¿Desea generarlo ya?")
 
 	  If $iBoton = $IDYES Then
 		 _GenerarNuevoHash()
 	  EndIf
 
-	  Exit
+	  If $bProcessExists Then
+		 Exit
+	  EndIf
    EndIf
 
 EndFunc
 
-If $bDisableExplorer = True Then
-   Run("taskkill /f /im explorer.exe", "", "", @SW_HIDE)
+;~ Verificar parámetros
+If $bDisableExplorer And $bProcessExists Then
+   Run("cmd /c taskkill /f /im " & $sExplorer, "", "", @SW_HIDE)
+
+ElseIf Not $bProcessExists Then
+
+   ; Leer el valor de la clave Shell
+   Local $sRegPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+   Local $sRegValue = "Shell"
+   Local $sShellValue = RegRead($sRegPath, $sRegValue)
+
+   If Not StringInStr($sShellValue, $sExplorer) > 0 Then
+	  RegWrite($sRegPath, $sRegValue, "REG_SZ", $sExplorer)
+
+	  MsgBox($MB_ICONWARNING, "Encontramos un error con " & $sExplorer, "El Explorador de Windows no pudo iniciarse." & @CRLF & @CRLF & $sRegValue & " de Winlogon esta configurado como: " & @CRLF & @CRLF & $sShellValue & @CRLF & @CRLF & "Para resolver el problema, se restablecio de forma predeterminada, el sistema se va reiniciar...")
+
+	  Run("cmd /c shutdown /r /f /t 0", "", "", @SW_HIDE)
+	  Exit
+
+   EndIf
+
 EndIf
 
-If $bDisableTaskMgr = True Then
+If $bDisableTaskMgr Then
    RegWrite("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System", "DisableTaskMgr", "REG_DWORD", "1")
 EndIf
 
@@ -178,13 +221,10 @@ WinMove($hPassGUI, "", (@DesktopWidth - $iAnchoPass) / 2, (@DesktopHeight - $iAl
 GUISetState(@SW_SHOW, $hPassGUI)
 
 ; Bloquear teclas especiales
-Local $aHotKeys = ["^", _ ; Ctrl
-"!", _ ; Alt
-"#", _ ; Win
-"{F4}", "{DEL}", "{TAB}", "{HOME}", "{ESC}", "{UP}", "{DOWN}", "{LEFT}", "{RIGHT}", "{SPACE}"]
+Local $aHotKeys = ["{F4}","{DEL}","{TAB}","{HOME}","{ESC}","{UP}","{DOWN}","{LEFT}","{RIGHT}","{SPACE}"]
 
 For $sKey In $aHotKeys
-    HotKeySet($sKey, "_NoHacerNada")
+    HotKeySet($sKey, "_BloquearTeclas")
 Next
 
 ; Bucle principal
@@ -206,15 +246,17 @@ While 1
 			   GUICtrlSetData($idErrorLabel, "")
 			EndIf
 
-			SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
-
-			If $bDisableExplorer = True Then
-			   Run(@WindowsDir & "\explorer.exe", "", @SW_HIDE)
+			; Restaurar Explorador de Windows si fue deshabilitado
+			If $bDisableExplorer Then
+			   Run(@WindowsDir & "\" & $sExplorer, "", @SW_HIDE)
 			EndIf
 
-			If $bDisableTaskMgr = True Then
+			; Restaurar Task Manager si fue deshabilitado
+			If $bDisableTaskMgr Then
 			   RegWrite("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System", "DisableTaskMgr", "REG_DWORD", "0")
 			EndIf
+
+			SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
 
 			Sleep(400)
 
@@ -238,10 +280,14 @@ While 1
 		 GUISetBkColor($iBkColor, $hGUI)
 
 	  Case $idPowerOff
-		 Run("shutdown -s -f -t 0", "", "", @SW_HIDE)
+		 Run("cmd /c shutdown /s /f /t 0", "", "", @SW_HIDE)
+		 GUICtrlSetState($idPowerOff, $GUI_DISABLE)
+		 GUICtrlSetState($idReboot, $GUI_DISABLE)
 
 	  Case $idReboot
-		 Run("shutdown -r -f -t 0", "", "", @SW_HIDE)
+		 Run("cmd /c shutdown /r /f /t 0", "", "", @SW_HIDE)
+		 GUICtrlSetState($idPowerOff, $GUI_DISABLE)
+		 GUICtrlSetState($idReboot, $GUI_DISABLE)
 
    EndSwitch
 
@@ -252,23 +298,20 @@ GUIDelete($hPassGUI)
 GUIDelete($hGUI)
 Exit
 
+;~ Funciones
 Func _VerificarPassword()
-   Return (_Hash_SHA1_SHA1_MD5(GUICtrlRead($idInput)) = $sPasswordCorrecta)
+   Return (_getHash(GUICtrlRead($idInput)) = $sPassHash)
 EndFunc
 
-Func _NoHacerNada()
+Func _BloquearTeclas()
     ; No acción para teclas bloqueadas
 	SoundPlay(@WindowsDir & "\media\Windows Hardware Fail.wav", $SOUND_NOWAIT)
  EndFunc
 
-Func _Hash_SHA1_SHA1_MD5($sInput)
-   Local $sHash = _Crypt_HashData($sInput, $CALG_SHA1)
+Func _getHash($sInput)
+   Local $sHash = _Crypt_HashData($sInput, 0x0000800e) ; sha512
 
-   $sHash = _Crypt_HashData($sHash, $CALG_SHA1)
-
-   $sHash = _Crypt_HashData($sHash, $CALG_MD5)
-
-   Return $sHash
+   Return _Crypt_HashData($sHash, $CALG_MD5) ; 128-bit
 EndFunc
 
 Func _Hora()
@@ -295,7 +338,9 @@ Func _GenerarNuevoHash()
 	  ; Si el usuario cancela
 	  If @error Then
 		 MsgBox($MB_ICONINFORMATION, "Información", "Generación de hash cancelada")
-		 Exit
+		 If $bProcessExists Then
+			Exit
+		 EndIf
 	  EndIf
 
 	  ; Validaciones
@@ -311,5 +356,5 @@ Func _GenerarNuevoHash()
    WEnd
 
    ; Generar y mostrar el hash
-   InputBox("Hash generado", "Has introducido la siguiente contraseña:" & @CRLF & @CRLF & $sInput & @CRLF & @CRLF & "Su nuevo hash es:", _Hash_SHA1_SHA1_MD5($sInput))
+   InputBox("Hash generado", "Has introducido la siguiente contraseña:" & @CRLF & @CRLF & $sInput & @CRLF & @CRLF & "Su nuevo hash es:", _getHash($sInput))
 EndFunc
