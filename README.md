@@ -18,7 +18,7 @@ Ejecuta el programa con el parámetro:
   ``MyLogin.exe /GenerateHash``
 
 > [!IMPORTANT]
-> Una vez ejecutado, sigas las instrucciones hasta obtener el Hash generado (ej: `0xBB7B85A436B38DFAE3756DDF54AF46CD`)
+> Una vez ejecutado, sigas las instrucciones hasta obtener el Hash generado (ej: `0x9461E4B1394C6134483668F09CCF7B93`)
 > 🔐 Guardalo, será tu contraseña "cifrada", la usaremos para iniciar el programa.
 
 ### 2. Iniciar el bloqueo
@@ -27,7 +27,7 @@ Usa tu Hash para iniciar el programa:
 - ``/PassHash`` ó ``/ph``
 
   Ejemplo:
-  ``MyLogin.exe /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD``
+  ``MyLogin.exe /PassHash 0x9461E4B1394C6134483668F09CCF7B93``
 
   Este Hash es la contraseña que ingresaste anteriormente en texto plano pero "cifrada".
    - Si no has generado un hash, no podrás acceder al programa, ya que es necesario para desbloquearlo.
@@ -63,11 +63,11 @@ Usa tu Hash para iniciar el programa:
 
   Ejemplo, habilitar modo dark (oscuro):
 
-  ``MyLogin.exe /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD /Style 1``
+  ``MyLogin.exe /PassHash 0x9461E4B1394C6134483668F09CCF7B93 /Style 1``
 
   Ejemplo con todas las opciones:
 
-  ``MyLogin.exe /ph 0xBB7B85A436B38DFAE3756DDF54AF46CD /dt /de /st 1``
+  ``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dt /de /st 1``
 
 ## 📥 ¿Cómo lo descargo?
 
@@ -94,7 +94,7 @@ Tienes varios métodos de cómo ``auto-ejecutarlo``, elije una de ellas:
      
   Ejemplo:
   ```
-  explorer.exe, "C:\myLogin.exe" /PassHash 0xBB7B85A436B38DFAE3756DDF54AF46CD
+  explorer.exe, "C:\myLogin.exe" /PassHash 0x9461E4B1394C6134483668F09CCF7B93
   ```
 
   
@@ -103,7 +103,7 @@ Tienes varios métodos de cómo ``auto-ejecutarlo``, elije una de ellas:
    - Abre ``gpedit.msc``
    - Ve a -> ``Config. Usuario -> Config. Windows -> Script -> Iniciar Sesión -> Agregar``
    - En nombre del script: ``C:\myLogin.exe``
-   - Parámetros del script: ``/ph 0xBB7B85A436B38DFAE3756DDF54AF46CD``
+   - Parámetros del script: ``/ph 0x9461E4B1394C6134483668F09CCF7B93``
    - Aceptar
    - Aplicar y Aceptar
 
@@ -112,14 +112,14 @@ Tienes varios métodos de cómo ``auto-ejecutarlo``, elije una de ellas:
 
    - Crea un acceso directo en: ``C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp``
      
-     Cuyas propiedades quedarian asi: ``C:\myLogin.exe /ph 0xBB7B85A436B38DFAE3756DDF54AF46CD``
+     Cuyas propiedades quedarian asi: ``C:\myLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93``
    
 4. **Tarea Programada**:
   
    - Este método puede tardar dependiendo de la cantidad de procesos y tareas en cola, por lo que no lo recomiendo.
      Si aun así decides usarlo, sigue estos pasos:
       - Abre ``cmd``
-      - Ingresa ``schtasks /create /tn "myLogin" /tr "\"C:\myLogin.exe\" /ph 0xBB7B85A436B38DFAE3756DDF54AF46CD" /sc onlogon``
+      - Ingresa ``schtasks /create /tn "myLogin" /tr "\"C:\myLogin.exe\" /ph 0x9461E4B1394C6134483668F09CCF7B93" /sc onlogon``
       - Y presiona ENTER.
       - Ya creado, "debería" ejecutarse cada vez que el usuario inicie sesión.
         
