@@ -1,11 +1,11 @@
 #pragma compile(FileDescription, Login secondary lock screen Windows)
 #pragma compile(ProductName, myLogin)
-#pragma compile(ProductVersion, 1.5)
+#pragma compile(ProductVersion, 1.6)
 #pragma compile(LegalCopyright, © by mlibre2)
-#pragma compile(FileVersion, 1.5)
+#pragma compile(FileVersion, 1.6)
 #pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
 
-Global Const $sVersion = "1.5"
+Global Const $sVersion = "1.6"
 
 #NoTrayIcon
 
@@ -35,7 +35,7 @@ Global $bDisableExplorer = False    ; Disable Windows Explorer
 Global $bDisableTaskMgr = False     ; Disable Task Manager
 Global $bDisablePowerOff = False    ; Disable system Shutdown button
 Global $bDisableReboot = False      ; Disable system Reboot button
-Global $sLanguage = "en"; _getOSLang()	; Get language (system)
+Global $sLanguage = _getOSLang()	; Get language (system)
 
 ; Language strings (will be loaded from INI)
 Global $aLangStrings[1]
@@ -128,9 +128,10 @@ GUICtrlSetImage(-1, "shell32.dll", -239)
 GUICtrlSetState(-1, $bDisableReboot ? $GUI_DISABLE : $GUI_ENABLE)
 GUICtrlSetTip(-1, _getLang("reboot"))
 
-GUICtrlCreateLabel(_getLang("start_time") & " " & _Time(), 135, 160)
+GUICtrlCreateLabel(_getLang("start_time") & " " & _Time(), 130, 160, 120)
 GUICtrlSetFont(-1, 8, $FW_NORMAL, $GUI_FONTNORMAL, "Consolas")
 GUICtrlSetColor(-1, $iStyle > 0 ? $iColorTxt : 0x000000)
+;~ GUICtrlSetBkColor(-1, 0x000000)
 
 GUICtrlCreateLabel("MyLogin v" & $sVersion, 295, 5)
 GUICtrlSetFont(-1, 6, $FW_NORMAL, $GUI_FONTNORMAL, "Consolas")
@@ -328,9 +329,9 @@ Func _ProcessParameters()
    Next
 
    If $sPassHash = "" Then
-      Local $iButton = MsgBox($MB_RETRYCANCEL, _getLang("error_title"), _getLang("missing_hash") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("generate_hash_help") & @CRLF & @CRLF & @ScriptName & " /GenerateHash" & @CRLF & @CRLF & @CRLF & _getLang("generate_now"))
+      Local $iButton = MsgBox($MB_YESNO, _getLang("error_title"), _getLang("missing_hash") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("generate_hash_help") & @CRLF & @CRLF & @ScriptName & " /GenerateHash" & @CRLF & @CRLF & @CRLF & _getLang("generate_now"))
 
-      If $iButton = $IDOK Then
+      If $iButton = $IDYES Then
          _GenerateNewHash()
       EndIf
 
