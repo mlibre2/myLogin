@@ -1,0 +1,66 @@
+name: Compile AutoIt Script
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  compile:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up AutoIt
+      run: |
+        # Download and install AutoIt
+        $autoitUrl = "https://www.autoitscript.com/cgi-bin/getfile.pl?autoit3/autoit-v3-setup.exe"
+        $installerPath = "$env:TEMP\autoit-installer.exe"
+        Invoke-WebRequest -Uri $autoitUrl -OutFile $installerPath
+        Start-Process -FilePath $installerPath -ArgumentList "/S" -Wait
+        
+        # Verify AutoIt installation
+        if (-not (Test-Path "C:\Program Files (x86)\AutoIt3\Aut2Exe\Aut2Exe.exe")) {
+          echo "::error::AutoIt installation failed"
+          exit 1
+        }
+        
+    - name: Compile script
+      run: |
+        $scriptPath = "$env:GITHUB_WORKSPACE\src\myLogin.au3"
+        $outputPath = "$env:GITHUB_WORKSPACE\myLogin.exe"
+        
+        # Verify script exists
+        if (-not (Test-Path $scriptPath)) {
+          echo "::error::Script not found at $scriptPath"
+          exit 1
+        }
+        
+        # Compile with detailed output
+        & "C:\Program Files (x86)\AutoIt3\Aut2Exe\Aut2Exe.exe" `
+          /in "$scriptPath" `
+          /out "$outputPath" `
+          /comp 0 `
+          /nopack | Out-String -Stream | ForEach-Object {
+            if ($_ -match "error") { Write-Error $_ }
+            else { Write-Output $_ }
+          }
+        
+        # Verify compilation
+        if (Test-Path $outputPath) {
+          echo "::notice::Compilation successful - Executable size: $((Get-Item $outputPath).Length) bytes"
+        } else {
+          echo "::error::Compilation failed - No output file created"
+          exit 1
+        }
+        
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: myLogin
+        path: |
+          myLogin.exe
+          lang/*.ini
