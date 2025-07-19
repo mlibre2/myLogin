@@ -132,11 +132,11 @@ Tienes varios métodos de cómo ``auto-ejecutarlo``, elije una de ellas:
 
 ## :hammer_and_wrench: ¿Cómo lo compilo manualmente?
 
-Puedes hacer uso del archivo [CMD](https://github.com/mlibre2/myLogin/tree/main/compile) cuyos requisitos es tener instalado el AutoIt3 con Aut2Exe
+Puedes hacer uso del archivo [CMD](https://github.com/mlibre2/myLogin/tree/main/compile_manual/Aut2Exe.cmd) cuyos requisitos es tener instalado el AutoIt3 con Aut2Exe
 
 ## :earth_americas: ¿Cómo añado más idiomas?
 
-A partir de la versión ``1.5``, puedes ayudar a añadir soporte para idiomas que aún no estén disponibles. Los archivos se encuentran en la carpeta [lang/](https://github.com/mlibre2/myLoginCompile/tree/main/lang)
+A partir de la versión ``1.5``, puedes ayudar a añadir soporte para idiomas que aún no estén disponibles. Los archivos se encuentran en la carpeta [lang/](https://github.com/mlibre2/myLogin/tree/main/lang)
 
 ## :building_construction: ¿Puedo ayudar en su desarrollo?
 
