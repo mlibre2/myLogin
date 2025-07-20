@@ -3,8 +3,14 @@ name: Compile AutoIt Script
 on:
   push:
     branches: [ main ]
+    paths:
+      - '!**'
+      - 'src/**/*.au3'
+
   pull_request:
     branches: [ main ]
+    paths:
+      - '!**'
 
 jobs:
   compile:
