@@ -1,4 +1,4 @@
-###### :world_map: Idiomas soportados: [Ingles](https://github.com/mlibre2/myLogin/blob/main/README.md) - [Español](#)
+###### :world_map: Idiomas soportados: [Ingles](https://github.com/mlibre2/myLogin?tab=readme-ov-file#world_map-supported-languages-english---spanish) - [Español](#)
 
 # myLogin ![GitHub Release](https://img.shields.io/github/v/release/mlibre2/myLogin?style=for-the-badge) ![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/mlibre2/myLogin/latest/total?style=for-the-badge) ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/mlibre2/myLogin/total?style=for-the-badge) <img align="right" width="32" height="32" alt="Ico" src="https://github.com/user-attachments/assets/c8c08b6a-927c-4278-917a-c23b10e6491d" />
 
@@ -136,7 +136,7 @@ Puedes hacer uso del archivo [CMD](https://github.com/mlibre2/myLogin/tree/main/
 
 ## :earth_americas: ¿Cómo añado más idiomas?
 
-A partir de la versión ``1.5``, puedes ayudar a añadir soporte para idiomas que aún no estén disponibles. Los archivos se encuentran en la carpeta [lang/](https://github.com/mlibre2/myLogin/tree/main/lang)
+A partir de la versión [1.5](https://github.com/mlibre2/myLogin/releases/tag/1.5), puedes ayudar a añadir soporte para idiomas que aún no estén disponibles. Los archivos se encuentran en la carpeta [lang/](https://github.com/mlibre2/myLogin/tree/main/lang)
 
 ## :building_construction: ¿Puedo ayudar en su desarrollo?
 
