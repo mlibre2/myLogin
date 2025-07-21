@@ -1,11 +1,11 @@
 #pragma compile(FileDescription, Login secondary lock screen Windows)
 #pragma compile(ProductName, myLogin)
-#pragma compile(ProductVersion, 1.7)
+#pragma compile(ProductVersion, 1.8)
 #pragma compile(LegalCopyright, © by mlibre2)
-#pragma compile(FileVersion, 1.7)
+#pragma compile(FileVersion, 1.8)
 #pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
 
-Const $g_sVersion = "1.7"
+Const $g_sVersion = "1.8"
 
 #NoTrayIcon
 
@@ -29,7 +29,7 @@ $g_iColorTxt = 0xFFFFFF								; Text color
 Const $g_iBkColorGUI = 0x000000						; Background color (full)
 $g_iBkColorPassGUI = 0xFFFFFF						; Background color (window)
 Const $g_iWidthPassGUI = 350						; Window width
-Const $g_iHeightPassGUI = 195							; Window height
+Const $g_iHeightPassGUI = 195						; Window height
 $g_iFailAttempts = 0								; Failed attempts (login)
 $g_iStyle = 0										; Color style (0=white/1=dark/2=aqua)
 $g_bDisableExplorer = False							; Disable Windows Explorer
@@ -37,18 +37,16 @@ $g_bDisableTaskMgr = False							; Disable Task Manager
 $g_bDisablePowerOff = False							; Disable system Shutdown button
 $g_bDisableReboot = False							; Disable system Reboot button
 Const $g_sLanguage = _getOSLang()					; Get language (system)
-Global $g_aLangStrings[1]							; Language strings (will be loaded from INI)
 $g_oLangLookup = ObjCreate("Scripting.Dictionary")	; Optimize searches table hash O(1)
 Const $g_iPassMinLength = 2							; Define minimum password length
 Const $g_iPassMaxLength = 30						; Define maximum password length
-Const $g_sExplorer = "explorer.exe"
-$g_bProcessExists = ProcessExists($g_sExplorer) > 0 ; Check if a process exists
+$g_bProcessExists = False							; Check if a process exists
 
 ; Load language files
 _LoadLanguage()
 
 ;~ Check single instance / Check and prevent double execution
-If _Singleton("ScreenLockWindow", 1) = 0 Or ProcessList(@ScriptName)[0][0] >= 2 Then
+If Not _Singleton("ScreenLockWindow", 1) Or ProcessList(@ScriptName)[0][0] >= 2 Then
    MsgBox($MB_ICONWARNING, @ScriptName, _getLang("program_already_open"), 3)
    Exit
 EndIf
@@ -56,27 +54,8 @@ EndIf
 ; ...command line
 _ProcessParameters()
 
-;~ Check parameters
-If $g_bDisableExplorer And $g_bProcessExists Then
-   Run("cmd /c taskkill /f /im " & $g_sExplorer, "", @SW_HIDE)
-
-ElseIf Not $g_bProcessExists Then
-   ; Read Shell key value
-   $sRegPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
-   $sRegValue = "Shell"
-   $sShellValue = RegRead($sRegPath, $sRegValue)
-
-   If Not StringInStr($sShellValue, $g_sExplorer) > 0 Then
-      RegWrite($sRegPath, $sRegValue, "REG_SZ", $g_sExplorer)
-
-      MsgBox($MB_ICONWARNING, _getLang("explorer_error_title"), _getLang("explorer_error_msg") & @CRLF & @CRLF & $sRegValue & " " & _getLang("from_winlogon") & ": " & @CRLF & @CRLF & $sShellValue & @CRLF & @CRLF & _getLang("explorer_fix_msg"))
-
-      Run("cmd /c shutdown /r /f /t 0", "", @SW_HIDE)
-      Exit
-   Else
-      $g_bDisableExplorer = True
-   EndIf
-EndIf
+;~ Check Explorer
+_chkExplorer()
 
 ; Create main window (fullscreen)
 $hGUI = GUICreate("", @DesktopWidth, @DesktopHeight, 0, 0, $WS_POPUP, BitOR($WS_EX_TOPMOST, $WS_EX_TOOLWINDOW))
@@ -137,11 +116,22 @@ WinMove($hPassGUI, "", (@DesktopWidth - $g_iWidthPassGUI) / 2, (@DesktopHeight -
 GUISetState(@SW_SHOW, $hPassGUI)
 
 ; Block special keys
-Local $aHotKeys = ["{F4}","{DEL}","{TAB}","{HOME}","{ESC}","{UP}","{DOWN}","{LEFT}","{RIGHT}","{SPACE}"]
+Local $aHotKeys = [ _
+   "{F4}","{DEL}","{TAB}","{HOME}","{ESC}","{UP}","{DOWN}","{LEFT}","{RIGHT}","{SPACE}", _
+   "+{SPACE}", _	; Shift+Space
+   "^{SPACE}" _		; Ctrl+Space
+]
 
-For $sKey In $aHotKeys
-    HotKeySet($sKey, "_BlockKeys")
+For $i = 0 To UBound($aHotKeys) - 1
+   HotKeySet($aHotKeys[$i], "_BlockKeys")
 Next
+
+; Detect key
+Local $aAccelKeys = [ _
+   ["{ENTER}", $idUnlock] _ ; Enter/Intro
+]
+
+GUISetAccelerators($aAccelKeys, $hPassGUI)
 
 ; Main loop
 While 1
@@ -170,6 +160,8 @@ While 1
                RegWrite("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System", "DisableTaskMgr", "REG_DWORD", "0")
             EndIf
 
+			_DisableButtons()
+
             SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
 
             Sleep(400)
@@ -179,7 +171,7 @@ While 1
 
          $g_iFailAttempts += 1
 
-         GUICtrlSetData($idErrorLabel, "(" & $g_iFailAttempts & ") " & _getLang("incorrect_password"))
+         GUICtrlSetData($idErrorLabel, _getLang("incorrect_password", $g_iFailAttempts))
          GUICtrlSetData($idInput, "")
          GUICtrlSetState($idInput, $GUI_FOCUS)
 
@@ -194,29 +186,53 @@ While 1
          GUISetBkColor($g_iBkColorGUI, $hGUI)
 
       Case $idPowerOff
+		 _DisableButtons()
          Run("cmd /c shutdown /s /f /t 0", "", @SW_HIDE)
-         GUICtrlSetState($idPowerOff, $GUI_DISABLE)
-         GUICtrlSetState($idReboot, $GUI_DISABLE)
 
       Case $idReboot
+		 _DisableButtons()
          Run("cmd /c shutdown /r /f /t 0", "", @SW_HIDE)
-         GUICtrlSetState($idPowerOff, $GUI_DISABLE)
-         GUICtrlSetState($idReboot, $GUI_DISABLE)
+
    EndSwitch
+
 WEnd
 
 ; Cleanup and exit
-GUIDelete($hPassGUI)
-GUIDelete($hGUI)
 Exit
 
 ;~ Functions
+Func _chkExplorer()
+   $sExplorer = "explorer.exe"
+   $g_bProcessExists = ProcessExists($sExplorer) > 0
+
+   If $g_bDisableExplorer And $g_bProcessExists Then
+	  Run("cmd /c taskkill /f /im " & $sExplorer, "", @SW_HIDE)
+
+   ElseIf Not $g_bProcessExists Then
+	  ; Read Shell key value
+	  $sRegPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+	  $sRegValue = "Shell"
+	  $sShellValue = RegRead($sRegPath, $sRegValue)
+
+	  If Not StringInStr($sShellValue, $sExplorer) > 0 Then
+		 RegWrite($sRegPath, $sRegValue, "REG_SZ", $sExplorer)
+
+		 MsgBox($MB_ICONWARNING, _getLang("explorer_error_title"), _getLang("explorer_error_msg") & @CRLF & @CRLF & $sRegValue & " " & _getLang("from_winlogon") & ": " & @CRLF & @CRLF & $sShellValue & @CRLF & @CRLF & _getLang("explorer_fix_msg"))
+
+		 Run("cmd /c shutdown /r /f /t 0", "", @SW_HIDE)
+		 Exit
+	  Else
+		 $g_bDisableExplorer = True
+	  EndIf
+   EndIf
+EndFunc
+
 Func _VerifyPassword()
    Return (_getHash(GUICtrlRead($idInput)) = $g_sPassHash)
 EndFunc
 
 Func _BlockKeys()
-    SoundPlay(@WindowsDir & "\media\Windows Hardware Fail.wav", $SOUND_NOWAIT)
+   SoundPlay(@WindowsDir & "\media\Windows Hardware Fail.wav", $SOUND_NOWAIT)
 EndFunc
 
 Func _getHash($sInput)
@@ -365,8 +381,10 @@ Func _LoadLanguage()
    $sIniContent = FileRead($hFile)
    FileClose($hFile)
 
+   Local $aLangStrings[1] ; Language strings (will be loaded from INI)
+
    ; Parse the INI content manually
-   $g_aLangStrings = _ParseIniSection($sIniContent, $g_sLanguage)
+   $aLangStrings = _ParseIniSection($sIniContent, $g_sLanguage)
 
    If @error Then
       MsgBox($MB_ICONERROR, "Error", "Invalid language file format in:" & @CRLF & $sLangFile)
@@ -374,8 +392,8 @@ Func _LoadLanguage()
    EndIf
 
    ; This builds a lookup dictionary for faster access
-   For $i = 1 To $g_aLangStrings[0][0]
-	   $g_oLangLookup.Item($g_aLangStrings[$i][0]) = $g_aLangStrings[$i][1]
+   For $i = 1 To $aLangStrings[0][0]
+	   $g_oLangLookup.Item($aLangStrings[$i][0]) = $aLangStrings[$i][1]
    Next
 EndFunc
 
@@ -561,4 +579,10 @@ Func _EnableBlur($hGUI)
    If @error Or Not $aRet[0] Then Return False
 
    Return True
+EndFunc
+
+Func _DisableButtons()
+   GUICtrlSetState($idPowerOff, $GUI_DISABLE)
+   GUICtrlSetState($idReboot, $GUI_DISABLE)
+   GUICtrlSetState($idUnlock, $GUI_DISABLE)
 EndFunc
