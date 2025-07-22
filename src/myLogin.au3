@@ -1,11 +1,11 @@
 #pragma compile(FileDescription, Login secondary lock screen Windows)
 #pragma compile(ProductName, myLogin)
-#pragma compile(ProductVersion, 1.8)
+#pragma compile(ProductVersion, 1.9)
 #pragma compile(LegalCopyright, © by mlibre2)
-#pragma compile(FileVersion, 1.8)
+#pragma compile(FileVersion, 1.9)
 #pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
 
-Const $g_sVersion = "1.8"
+Const $g_sVersion = "1.9"
 
 #NoTrayIcon
 
@@ -40,22 +40,23 @@ Const $g_sLanguage = _getOSLang()					; Get language (system)
 $g_oLangLookup = ObjCreate("Scripting.Dictionary")	; Optimize searches table hash O(1)
 Const $g_iPassMinLength = 2							; Define minimum password length
 Const $g_iPassMaxLength = 30						; Define maximum password length
+Const $g_sExplorer = "explorer.exe"					;
 $g_bProcessExists = False							; Check if a process exists
 
 ; Load language files
 _LoadLanguage()
 
-;~ Check single instance / Check and prevent double execution
-If Not _Singleton("ScreenLockWindow", 1) Or ProcessList(@ScriptName)[0][0] >= 2 Then
+;~ Check single instance prevent double execution
+If Not _Singleton("ScreenLockWindow", 1) Then
    MsgBox($MB_ICONWARNING, @ScriptName, _getLang("program_already_open"), 3)
    Exit
 EndIf
 
-; ...command line
-_ProcessParameters()
-
 ;~ Check Explorer
 _chkExplorer()
+
+; ...command line
+_ProcessParameters()
 
 ; Create main window (fullscreen)
 $hGUI = GUICreate("", @DesktopWidth, @DesktopHeight, 0, 0, $WS_POPUP, BitOR($WS_EX_TOPMOST, $WS_EX_TOOLWINDOW))
@@ -152,7 +153,7 @@ While 1
 
             ; Restore Windows Explorer if disabled
             If $g_bDisableExplorer Then
-               Run($sExplorer, @WindowsDir, @SW_HIDE)
+               Run($g_sExplorer, @WindowsDir, @SW_HIDE)
             EndIf
 
             ; Restore Task Manager if disabled
@@ -202,11 +203,10 @@ Exit
 
 ;~ Functions
 Func _chkExplorer()
-   $sExplorer = "explorer.exe"
-   $g_bProcessExists = ProcessExists($sExplorer) > 0
+   $g_bProcessExists = ProcessExists($g_sExplorer) > 0
 
    If $g_bDisableExplorer And $g_bProcessExists Then
-	  Run("cmd /c taskkill /f /im " & $sExplorer, "", @SW_HIDE)
+	  Run("cmd /c taskkill /f /im " & $g_sExplorer, "", @SW_HIDE)
 
    ElseIf Not $g_bProcessExists Then
 	  ; Read Shell key value
@@ -214,8 +214,8 @@ Func _chkExplorer()
 	  $sRegValue = "Shell"
 	  $sShellValue = RegRead($sRegPath, $sRegValue)
 
-	  If Not StringInStr($sShellValue, $sExplorer) > 0 Then
-		 RegWrite($sRegPath, $sRegValue, "REG_SZ", $sExplorer)
+	  If Not StringInStr($sShellValue, $g_sExplorer) > 0 Then
+		 RegWrite($sRegPath, $sRegValue, "REG_SZ", $g_sExplorer)
 
 		 MsgBox($MB_ICONWARNING, _getLang("explorer_error_title"), _getLang("explorer_error_msg") & @CRLF & @CRLF & $sRegValue & " " & _getLang("from_winlogon") & ": " & @CRLF & @CRLF & $sShellValue & @CRLF & @CRLF & _getLang("explorer_fix_msg"))
 
@@ -265,9 +265,8 @@ Func _GenerateNewHash()
       ; If user cancels
       If @error Then
          MsgBox($MB_ICONINFORMATION, _getLang("info"), _getLang("hash_generation_canceled"))
-         If $g_bProcessExists Then
-            Exit
-         EndIf
+         If $g_bProcessExists Then Exit
+
       EndIf
 
       ; Validations
@@ -291,9 +290,7 @@ Func _ProcessParameters()
       Switch $CmdLine[$i]
          Case "/GenerateHash", "/gh"
             _GenerateNewHash()
-            If $g_bProcessExists Then
-               Exit
-            EndIf
+            If $g_bProcessExists Then Exit
 
          Case "/PassHash", "/ph"
             If $i + 1 <= $CmdLine[0] Then
@@ -303,9 +300,7 @@ Func _ProcessParameters()
                ; Basic hash validation
                If StringLen($g_sPassHash) <> 34 Or StringLeft($g_sPassHash, 2) <> "0x" Then
                   MsgBox($MB_ICONERROR, _getLang("error_title"), _getLang("invalid_hash") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("generate_hash_help") & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
-                  If $g_bProcessExists Then
-                     Exit
-                  EndIf
+                  If $g_bProcessExists Then Exit
                EndIf
             EndIf
 
@@ -341,94 +336,49 @@ Func _ProcessParameters()
    If $g_sPassHash = "" Then
       $iButton = MsgBox($MB_YESNO, _getLang("error_title"), _getLang("missing_hash") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("generate_hash_help") & @CRLF & @CRLF & @ScriptName & " /GenerateHash" & @CRLF & @CRLF & @CRLF & _getLang("generate_now"))
 
-      If $iButton = $IDYES Then
-         _GenerateNewHash()
-      EndIf
+      If $iButton = $IDYES Then _GenerateNewHash()
 
-      If $g_bProcessExists Then
-         Exit
-      EndIf
+      If $g_bProcessExists Then Exit
+
    EndIf
 EndFunc
 
 Func _LoadLanguage()
-   $sLangPath = @ScriptDir & "\lang"
-   $sLangFile = $sLangPath & "\" & $g_sLanguage & ".ini"
+   $sLangFile = @ScriptDir & "\lang\" & $g_sLanguage & ".ini"
 
-   ; Check if language folder exists
-   If Not FileExists($sLangPath) Then
-      MsgBox($MB_ICONERROR, "Error", "Language folder not found at:" & @CRLF & $sLangPath)
-      Exit
-   EndIf
+   If Not FileExists($sLangFile) Then $sLangFile = @ScriptDir & "\lang\en.ini"
+   If Not FileExists($sLangFile) Then Exit MsgBox(0x10, "Error", "Language file not found")
 
-   ; Check if requested language file exists, fallback to English if not
-   If Not FileExists($sLangFile) Then
-      $sLangFile = $sLangPath & "\en.ini"
+   $hFile = FileOpen($sLangFile, 256 + 128) ; $FO_UTF8_NOBOM + $FO_READ
 
-      If Not FileExists($sLangFile) Then
-         MsgBox($MB_ICONERROR, "Error", "Default language file (en.ini) not found at:" & @CRLF & $sLangPath)
-         Exit
-      EndIf
-   EndIf
+   If $hFile = -1 Then Exit MsgBox(0x10, "Error", "Unable to open language file")
 
-   ; Read file with proper encoding handling
-   $hFile = FileOpen($sLangFile, $FO_UTF8_NOBOM + $FO_READ)
-   If $hFile = -1 Then
-      MsgBox($MB_ICONERROR, "Error", "Unable to open language file:" & @CRLF & $sLangFile)
-      Exit
-   EndIf
+   $sContent = FileRead($hFile)
 
-   $sIniContent = FileRead($hFile)
    FileClose($hFile)
 
-   Local $aLangStrings[1] ; Language strings (will be loaded from INI)
-
-   ; Parse the INI content manually
-   $aLangStrings = _ParseIniSection($sIniContent, $g_sLanguage)
-
-   If @error Then
-      MsgBox($MB_ICONERROR, "Error", "Invalid language file format in:" & @CRLF & $sLangFile)
-      Exit
-   EndIf
-
-   ; This builds a lookup dictionary for faster access
-   For $i = 1 To $aLangStrings[0][0]
-	   $g_oLangLookup.Item($aLangStrings[$i][0]) = $aLangStrings[$i][1]
-   Next
-EndFunc
-
-Func _ParseIniSection($sIniContent, $sSection)
-   Local $aResult[1][2]
-   $iCount = 0
+   $aLines = StringSplit(StringStripCR($sContent), @LF)
    $bInSection = False
-   $aLines = StringSplit(StringStripCR($sIniContent), @LF)
 
    For $i = 1 To $aLines[0]
-      $sLine = StringStripWS($aLines[$i], $STR_STRIPLEADING + $STR_STRIPTRAILING)
+	  $sLine = StringStripWS($aLines[$i], 3)
 
-      ; Skip empty lines and comments
-      If $sLine = "" Or StringLeft($sLine, 1) = ";" Then ContinueLoop
+	  If $sLine = "" Or StringLeft($sLine, 1) = ";" Then ContinueLoop
 
-      ; Check for section
-      If StringLeft($sLine, 1) = "[" And StringRight($sLine, 1) = "]" Then
-         $bInSection = (StringMid($sLine, 2, StringLen($sLine)-2) = $sSection)
-         ContinueLoop
-      EndIf
+	  If StringLeft($sLine, 1) = "[" And StringRight($sLine, 1) = "]" Then
+		 $bInSection = (StringMid($sLine, 2, StringLen($sLine)-2) = $g_sLanguage)
+		 ContinueLoop
 
-      ; If we're in the right section, parse key=value
-      If $bInSection Then
-         $iEqualsPos = StringInStr($sLine, "=")
-         If $iEqualsPos > 0 Then
-            $iCount += 1
-            ReDim $aResult[$iCount+1][2]
-            $aResult[$iCount][0] = StringStripWS(StringLeft($sLine, $iEqualsPos-1), $STR_STRIPLEADING + $STR_STRIPTRAILING)
-            $aResult[$iCount][1] = StringStripWS(StringMid($sLine, $iEqualsPos+1), $STR_STRIPLEADING + $STR_STRIPTRAILING)
-         EndIf
-      EndIf
+	  EndIf
+
+	  If $bInSection Then
+			$iPos = StringInStr($sLine, "=")
+            If $iPos > 0 Then
+			   $g_oLangLookup.Item(StringStripWS(StringLeft($sLine, $iPos-1), 3)) = StringStripWS(StringMid($sLine, $iPos+1), 3)
+            EndIf
+	  EndIf
+
    Next
-
-   $aResult[0][0] = $iCount
-   Return $aResult
 EndFunc
 
 Func _getLang($sKey, $vParams = "")
