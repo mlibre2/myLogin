@@ -1,11 +1,11 @@
 #pragma compile(FileDescription, Login secondary lock screen Windows)
 #pragma compile(ProductName, myLogin)
-#pragma compile(ProductVersion, 1.9)				; auto-incremental by workflows (compile)
+#pragma compile(ProductVersion, 2.0)				; auto-incremental by workflows (compile)
 #pragma compile(LegalCopyright, © by mlibre2)
-#pragma compile(FileVersion, 1.9)					; auto-incremental by workflows (compile)
+#pragma compile(FileVersion, 2.0)					; auto-incremental by workflows (compile)
 #pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
 
-Const $g_sVersion = "1.9"			; auto-incremental by workflows (compile)
+Const $g_sVersion = "2.0"			; auto-incremental by workflows (compile)
 
 #NoTrayIcon							; Will not be shown when the script starts
 
