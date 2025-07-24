@@ -58,6 +58,11 @@ Usa tu Hash para iniciar el programa:
 - ``/DisableReboot`` ó ``/dr``
   
     Con este parámetro podrás deshabilitar el botón de Reiniciar **(disponible desde [v1.1](https://github.com/mlibre2/myLogin/releases/tag/1.1))**
+
+
+- ``/DisableLockSession`` ó ``/dl``
+  
+    Con este parámetro podrás deshabilitar el botón de Bloquear sesión **(disponible desde [v2.0](https://github.com/mlibre2/myLogin/releases/tag/2.0))**
   
 
 - ``/Style`` ó ``/st``
