@@ -54,6 +54,10 @@ With this parameter, you can disable the Power Off button **(available since [v1
 
 With this parameter, you can disable the Restart button **(available since [v1.1](https://github.com/mlibre2/myLogin/releases/tag/1.1))**
 
+- ``/DisableLockSession`` or ``/dl``
+
+With this parameter, you can disable the Lock Session button **(available since [v2.0](https://github.com/mlibre2/myLogin/releases/tag/2.0))**
+
 - ``/Style`` or ``/st``
 
 With this parameter, you can change the layout (0=Default White, 1=Dark, 2=Light Blue)
