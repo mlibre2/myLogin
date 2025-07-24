@@ -4,13 +4,10 @@ on:
   push:
     branches: [ main ]
     paths:
-      - '!**'
       - 'src/**/*.au3'
 
-  pull_request:
-    branches: [ main ]
-    paths:
-      - '!**'
+permissions:
+  contents: write  # push repo
 
 jobs:
   compile:
@@ -19,7 +16,45 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+      with:
+        fetch-depth: 0  # Clone history repo
+
+    - name: Get and update version
+      id: version
+      run: |
+        # Extract current version
+        $filePath = "$env:GITHUB_WORKSPACE\src\myLogin.au3"
+        $content = Get-Content -Path $filePath -Raw
+        
+        # Update version in Const
+        if ($content -match 'Const \$g_sVersion\s*=\s*"([0-9]+)\.([0-9]+)"') {
+          $major = [int]$matches[1]
+          $minor = [int]$matches[2]
+          
+          # Increment logic (1.9 → 2.0)
+          if ($minor -ge 9) {
+            $major++
+            $minor = 0
+          } else {
+            $minor++
+          }
+          
+          $newVersion = "$major.$minor"
+          echo "new_version=$newVersion" >> $env:GITHUB_OUTPUT
+          
+          # Update CONST keeping exact format
+          $updatedContent = $content -replace `
+            '(Const \$g_sVersion\s*=\s*")([0-9]+\.[0-9]+)(")', `
+            "`${1}$newVersion`${3}"
+            
+          # Update version pragmas
+          $updatedContent = $updatedContent -replace `
+            '(#pragma compile\((ProductVersion|FileVersion),\s*)([0-9]+\.[0-9]+)(\))', `
+            "`${1}$newVersion`${4}"
+            
+          Set-Content -Path $filePath -Value $updatedContent -NoNewline
+        }
+        
     - name: Set up AutoIt
       run: |
         # Download and install AutoIt
@@ -33,21 +68,14 @@ jobs:
           echo "::error::AutoIt installation failed"
           exit 1
         }
-        
+    
     - name: Compile script
       run: |
-        $scriptPath = "$env:GITHUB_WORKSPACE\src\myLogin.au3"
         $outputPath = "$env:GITHUB_WORKSPACE\myLogin.exe"
-        
-        # Verify script exists
-        if (-not (Test-Path $scriptPath)) {
-          echo "::error::Script not found at $scriptPath"
-          exit 1
-        }
         
         # Compile with detailed output
         & "C:\Program Files (x86)\AutoIt3\Aut2Exe\Aut2Exe.exe" `
-          /in "$scriptPath" `
+          /in "$env:GITHUB_WORKSPACE\src\myLogin.au3" `
           /out "$outputPath" `
           /comp 0 `
           /nopack | Out-String -Stream | ForEach-Object {
@@ -62,11 +90,19 @@ jobs:
           echo "::error::Compilation failed - No output file created"
           exit 1
         }
-        
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: myLogin
+        name: myLogin${{ steps.version.outputs.new_version }}
         path: |
           myLogin.exe
           lang/*.ini
+          
+    - name: Commit the new version
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        git add src/myLogin.au3
+        git commit -m "⬆️ Auto-update version to ${{ steps.version.outputs.new_version }} [skip ci]"
+        git push origin HEAD:main
