@@ -3,7 +3,7 @@
 
 # myLogin [![GitHub Release](https://img.shields.io/github/v/release/mlibre2/myLogin?style=for-the-badge)](https://github.com/mlibre2/myLogin/releases) [![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/mlibre2/myLogin/latest/total?style=for-the-badge)](#) [![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/mlibre2/myLogin/total?style=for-the-badge)](#) <img align="right" width="32" height="32" alt="es" src="https://github.com/user-attachments/assets/c8c08b6a-927c-4278-917a-c23b10e6491d" />
 
-<img width="1280" height="768" alt="es" src="https://github.com/user-attachments/assets/c51a9cee-5f0f-4edf-9a90-1a2aa9ebfe74" />
+<img width="1280" height="768" alt="en" src="https://github.com/mlibre2/myLoginCompile/blob/main/README/es.png" />
 
 Simple programa de código abierto para bloquear la pantalla del Escritorio de Windows con opciones avanzadas:
 - Desactiva teclas específicas del teclado y clics del mouse
