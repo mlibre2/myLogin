@@ -1,25 +1,25 @@
 #pragma compile(FileDescription, Login secondary lock screen Windows)
 #pragma compile(ProductName, myLogin)
-#pragma compile(ProductVersion, 1.9)
+#pragma compile(ProductVersion, 1.9)				; auto-incremental by workflows (compile)
 #pragma compile(LegalCopyright, © by mlibre2)
-#pragma compile(FileVersion, 1.9)
+#pragma compile(FileVersion, 1.9)					; auto-incremental by workflows (compile)
 #pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
 
-Const $g_sVersion = "1.9"
+Const $g_sVersion = "1.9"			; auto-incremental by workflows (compile)
 
-#NoTrayIcon
+#NoTrayIcon							; Will not be shown when the script starts
 
-#include <GUIConstantsEx.au3>
-#include <WindowsConstants.au3>
-#include <StaticConstants.au3>
-#include <ButtonConstants.au3>
-#include <AutoItConstants.au3>
-#include <MsgBoxConstants.au3>
-#include <EditConstants.au3>
-#include <Misc.au3>
-#include <Crypt.au3>
-#include <StringConstants.au3>
-#include <WinAPIGdi.au3>
+#include <GUIConstantsEx.au3>		; GUI Create, events
+#include <WindowsConstants.au3>		; Gui extended style
+#include <StaticConstants.au3>		; Label, Pic, Icon
+#include <ButtonConstants.au3>		; Button, Group, Radio, Checkbox
+#include <AutoItConstants.au3>		; Constants
+#include <MsgBoxConstants.au3>		; MsgBox related
+#include <EditConstants.au3>		; Edit, Input
+#include <Misc.au3>					; That assist with Common Dialogs
+#include <Crypt.au3>				; Encrypting and hashing data
+#include <StringConstants.au3>		; Using String
+#include <WinAPIGdi.au3>			; UDF Library
 
 ; configuration
 $g_sPassHash = ""
@@ -36,12 +36,14 @@ $g_bDisableExplorer = False							; Disable Windows Explorer
 $g_bDisableTaskMgr = False							; Disable Task Manager
 $g_bDisablePowerOff = False							; Disable system Shutdown button
 $g_bDisableReboot = False							; Disable system Reboot button
+$g_bDisableLockSession = False						; Disable system Lock button
 Const $g_sLanguage = _getOSLang()					; Get language (system)
 $g_oLangLookup = ObjCreate("Scripting.Dictionary")	; Optimize searches table hash O(1)
 Const $g_iPassMinLength = 2							; Define minimum password length
 Const $g_iPassMaxLength = 30						; Define maximum password length
-Const $g_sExplorer = "explorer.exe"					;
+Const $g_sExplorer = "explorer.exe"
 $g_bProcessExists = False							; Check if a process exists
+Global $g_aButtonsParam[4]							; save/get button parameters
 
 ; Load language files
 _LoadLanguage()
@@ -70,6 +72,14 @@ GUISetBkColor($g_iBkColorPassGUI, $hPassGUI)
 WinSetTrans($hPassGUI, "", $g_iTransparencyPassGUI)
 
 ; Position controls
+GUICtrlCreateLabel(_getLang("start_time") & " " & _Time(), 10, 5)
+GUICtrlSetFont(-1, 6, $FW_NORMAL, $GUI_FONTNORMAL, "Consolas")
+GUICtrlSetColor(-1, $g_iStyle > 0 ? $g_iColorTxt : 0x000000)
+
+GUICtrlCreateLabel("MyLogin v" & $g_sVersion, 285, 5)
+GUICtrlSetFont(-1, 6, $FW_NORMAL, $GUI_FONTNORMAL, "Consolas")
+GUICtrlSetColor(-1, $g_iStyle > 0 ? $g_iColorTxt : 0x000000)
+
 $idIcoPass = GUICtrlCreateIcon("shell32.dll", -245, ($g_iWidthPassGUI - 32) / 2, 10, 32, 32)
 GUICtrlSetTip(-1, _getLang("restricted_access"))
 
@@ -88,10 +98,6 @@ $idErrorLabel = GUICtrlCreateLabel("", 10, 120, $g_iWidthPassGUI - 20, 20, $SS_C
 GUICtrlSetColor(-1, $g_iStyle > 0 ? 0xFFEC00 : 0xFF0000)
 GUICtrlSetFont(-1, 8, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
 
-$idUnlock = GUICtrlCreateButton(-1, 290, 146, 40, 40, $BS_ICON)
-GUICtrlSetImage(-1, "shell32.dll", -177)
-GUICtrlSetTip(-1, _getLang("unlock"))
-
 $idPowerOff = GUICtrlCreateButton(-1, 20, 146, 40, 40, $BS_ICON)
 GUICtrlSetImage(-1, "shell32.dll", -28)
 GUICtrlSetState(-1, $g_bDisablePowerOff ? $GUI_DISABLE : $GUI_ENABLE)
@@ -102,13 +108,14 @@ GUICtrlSetImage(-1, "shell32.dll", -239)
 GUICtrlSetState(-1, $g_bDisableReboot ? $GUI_DISABLE : $GUI_ENABLE)
 GUICtrlSetTip(-1, _getLang("reboot"))
 
-GUICtrlCreateLabel(_getLang("start_time") & " " & _Time(), 130, 160, 120)
-GUICtrlSetFont(-1, 8, $FW_NORMAL, $GUI_FONTNORMAL, "Consolas")
-GUICtrlSetColor(-1, $g_iStyle > 0 ? $g_iColorTxt : 0x000000)
+$idLockSession = GUICtrlCreateButton(-1, 110, 146, 40, 40, $BS_ICON)
+GUICtrlSetImage(-1, "shell32.dll", -112)
+GUICtrlSetState(-1, $g_bDisableLockSession ? $GUI_DISABLE : $GUI_ENABLE)
+GUICtrlSetTip(-1, _getLang("lock_session"))
 
-GUICtrlCreateLabel("MyLogin v" & $g_sVersion, 295, 5)
-GUICtrlSetFont(-1, 6, $FW_NORMAL, $GUI_FONTNORMAL, "Consolas")
-GUICtrlSetColor(-1, $g_iStyle > 0 ? $g_iColorTxt : 0x000000)
+$idUnlock = GUICtrlCreateButton(-1, 290, 146, 40, 40, $BS_ICON)
+GUICtrlSetImage(-1, "shell32.dll", -177)
+GUICtrlSetTip(-1, _getLang("unlock"))
 
 SoundPlay(@WindowsDir & "\media\tada.wav", $SOUND_NOWAIT)
 
@@ -147,21 +154,17 @@ While 1
 
             GUICtrlSetData($idTxtMsg, "")
 
-            If $g_iFailAttempts > 0 Then
+            If $g_iFailAttempts Then
                GUICtrlSetData($idErrorLabel, "")
+
+			   _DisableButtons(True)
             EndIf
 
             ; Restore Windows Explorer if disabled
-            If $g_bDisableExplorer Then
-               Run($g_sExplorer, @WindowsDir, @SW_HIDE)
-            EndIf
+            If $g_bDisableExplorer Then Run($g_sExplorer, @WindowsDir, @SW_HIDE)
 
             ; Restore Task Manager if disabled
-            If $g_bDisableTaskMgr Then
-               RegWrite("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System", "DisableTaskMgr", "REG_DWORD", "0")
-            EndIf
-
-			_DisableButtons()
+            If $g_bDisableTaskMgr Then RegWrite("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System", "DisableTaskMgr", "REG_DWORD", "0")
 
             SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
 
@@ -174,25 +177,40 @@ While 1
 
          GUICtrlSetData($idErrorLabel, _getLang("incorrect_password", $g_iFailAttempts))
          GUICtrlSetData($idInput, "")
-         GUICtrlSetState($idInput, $GUI_FOCUS)
-
-         SoundPlay(@WindowsDir & "\media\chord.wav", $SOUND_NOWAIT)
 
          GUICtrlSetImage($idIcoPass, "imageres.dll", -101)
          GUISetBkColor(0xC10000, $hGUI) ; semi dark red
 
-         Sleep(300)
+		 SoundPlay(@WindowsDir & "\media\chord.wav", $SOUND_NOWAIT)
+
+		 _DisableButtons(True)
+
+		 If $g_iFailAttempts >= 3 Then
+			Sleep(100 * $g_iFailAttempts)
+		 EndIf
+
+		 Sleep(300)
+
+		 _DisableButtons(False)
 
          GUICtrlSetImage($idIcoPass, "shell32.dll", -245)
          GUISetBkColor($g_iBkColorGUI, $hGUI)
 
+		 GUICtrlSetState($idInput, $GUI_FOCUS)
+
       Case $idPowerOff
-		 _DisableButtons()
+		 _DisableButtons(True)
          Run("cmd /c shutdown /s /f /t 0", "", @SW_HIDE)
 
       Case $idReboot
-		 _DisableButtons()
+		 _DisableButtons(True)
          Run("cmd /c shutdown /r /f /t 0", "", @SW_HIDE)
+
+	  Case $idLockSession
+		 _DisableButtons(True)
+		 Run("cmd /c rundll32 user32.dll,LockWorkStation", "", @SW_HIDE)
+		 Sleep(300)
+		 _DisableButtons(False)
 
    EndSwitch
 
@@ -260,7 +278,7 @@ Func _GenerateNewHash()
 
    ; Loop until valid password is entered
    While Not $bValid
-      $sInput = InputBox(_getLang("hash_generator_title"), _getLang("hash_generator_msg") & @CRLF & @CRLF & "- " & _getLang("min_chars", $g_iPassMinLength & "|" & $g_iPassMaxLength) & @CRLF & "- " & _getLang("no_spaces"), "", "*", 350)
+      $sInput = InputBox(_getLang("hash_generator_title"), _getLang("hash_generator_msg") & @CRLF & @CRLF & "- " & _getLang("min_chars", $g_iPassMinLength, $g_iPassMaxLength) & @CRLF & "- " & _getLang("no_spaces"), "", "*", 350)
 
       ; If user cancels
       If @error Then
@@ -271,7 +289,7 @@ Func _GenerateNewHash()
 
       ; Validations
       If StringLen($sInput) < $g_iPassMinLength Or StringLen($sInput) > $g_iPassMaxLength Then
-         MsgBox($MB_ICONWARNING, _getLang("error_title"), _getLang("min_chars_error", $g_iPassMinLength & "|" & $g_iPassMaxLength))
+         MsgBox($MB_ICONWARNING, _getLang("error_title"), _getLang("min_chars_error", $g_iPassMinLength,  $g_iPassMaxLength))
 	  ElseIf StringIsSpace($sInput) Then
          MsgBox($MB_ICONWARNING, _getLang("error_title"), _getLang("spaces_only_error"))
       ElseIf StringInStr($sInput, " ") Then
@@ -317,6 +335,9 @@ Func _ProcessParameters()
          Case "/DisableReboot", "/dr"
             $g_bDisableReboot = True
 
+		 Case "/DisableLockSession", "/dl"
+			$g_bDisableLockSession = True
+
          Case "/Style", "/st"
             If $i + 1 <= $CmdLine[0] Then
                $g_iStyle = $CmdLine[$i + 1]
@@ -341,17 +362,24 @@ Func _ProcessParameters()
       If $g_bProcessExists Then Exit
 
    EndIf
+
+   ; save button parameters
+   Local $aButtons = [$g_bDisablePowerOff, $g_bDisableReboot, $g_bDisableLockSession]
+
+   For $i = 0 To UBound($aButtons) - 1
+	  $g_aButtonsParam[$i] = $aButtons[$i]
+   Next
 EndFunc
 
 Func _LoadLanguage()
    $sLangFile = @ScriptDir & "\lang\" & $g_sLanguage & ".ini"
 
    If Not FileExists($sLangFile) Then $sLangFile = @ScriptDir & "\lang\en.ini"
-   If Not FileExists($sLangFile) Then Exit MsgBox(0x10, "Error", "Language file not found")
+   If Not FileExists($sLangFile) Then Exit MsgBox($MB_ICONERROR, "Error", "Language file not found")
 
-   $hFile = FileOpen($sLangFile, 256 + 128) ; $FO_UTF8_NOBOM + $FO_READ
+   $hFile = FileOpen($sLangFile, $FO_UTF8_NOBOM + $FO_READ)
 
-   If $hFile = -1 Then Exit MsgBox(0x10, "Error", "Unable to open language file")
+   If $hFile = -1 Then Exit MsgBox($MB_ICONERROR, "Error", "Unable to open language file")
 
    $sContent = FileRead($hFile)
 
@@ -361,7 +389,7 @@ Func _LoadLanguage()
    $bInSection = False
 
    For $i = 1 To $aLines[0]
-	  $sLine = StringStripWS($aLines[$i], 3)
+	  $sLine = StringStripWS($aLines[$i], $STR_STRIPLEADING + $STR_STRIPTRAILING)
 
 	  If $sLine = "" Or StringLeft($sLine, 1) = ";" Then ContinueLoop
 
@@ -381,22 +409,14 @@ Func _LoadLanguage()
    Next
 EndFunc
 
-Func _getLang($sKey, $vParams = "")
+Func _getLang($sKey, $vParams = "", $vB = "", $vC = "", $vD = "")
    ; Check if the key exists
-   If Not $g_oLangLookup.Exists($sKey) Then
-	  Return "NOT FOUND: [" & $sKey & "]"
-   EndIf
-
    $sText = $g_oLangLookup.Item($sKey)
 
-   ; Process dynamic parameters
-   If $vParams <> "" Then
-	  $aParams = StringSplit($vParams, "|", 2)
+   If @error Then Return "NOT FOUND: [" & $sKey & "]"
 
-	  For $i = 0 To UBound($aParams) - 1
-		 $sText = StringReplace($sText, "%d", $aParams[$i], 1)
-	  Next
-   EndIf
+   ; Process dynamic parameters
+   If $vParams <> "" Then Return StringFormat($sText, $vParams, $vB, $vC, $vD)
 
    Return $sText
 EndFunc
@@ -531,8 +551,11 @@ Func _EnableBlur($hGUI)
    Return True
 EndFunc
 
-Func _DisableButtons()
-   GUICtrlSetState($idPowerOff, $GUI_DISABLE)
-   GUICtrlSetState($idReboot, $GUI_DISABLE)
-   GUICtrlSetState($idUnlock, $GUI_DISABLE)
+Func _DisableButtons($bValue)
+   Local $aButtons = [$idPowerOff, $idReboot, $idLockSession, $idUnlock]
+
+   For $i = 0 To UBound($aButtons) - 1
+	  ; get button parameters
+	  If Not $g_aButtonsParam[$i] Then GUICtrlSetState($aButtons[$i], $bValue ? $GUI_DISABLE : $GUI_ENABLE)
+   Next
 EndFunc
