@@ -6,103 +6,392 @@ on:
     paths:
       - 'src/**/*.au3'
 
-permissions:
-  contents: write  # push repo
+######################################################################### repo permissions (no token)
+
+#permissions:
+#  contents: write  # push repo
+
+######################################################################### jobs
 
 jobs:
   compile:
-    runs-on: windows-latest
-    
+    runs-on: windows-2022 # Autoit tool does not support >=2025
+    timeout-minutes: 3    # Maximum compilation time
+    env:
+      SCRIPT_NAME: myLogin
+      ENABLE_SIGNPATH: 'true'
+      ENABLE_VIRUSTOTAL: 'true'
+      DELETE_RELEASES_TAG: 'false'  # required permissions write (only cleaning tests)
+
+######################################################################### steps
+
     steps:
+    - name: Get/set environment variables
+      run: |
+        echo "SCRIPT_PATH=src\${{ env.SCRIPT_NAME }}.au3" >> $GITHUB_ENV
+        echo "OUTPUT_PATH=${{ env.SCRIPT_NAME }}.exe" >> $GITHUB_ENV
+      shell: bash
+
+######################################################################### checkout
+
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Clone history repo
+        token: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
+        # Download only the necessary files
+        sparse-checkout: |
+          src/
+          lang/
+        # no requerid
+        ssh-strict: false
+        show-progress: false
+        
+    #- name: get owner and repo names
+    #  shell: pwsh
+    #  run: |
+    #    $parts = "${{ github.repository }}" -split '/'
+    #    echo "OWNER=$($parts[0])" >> $env:GITHUB_ENV
+    #    echo "REPO=$($parts[1])" >> $env:GITHUB_ENV
 
-    - name: Get and update version
-      id: version
-      run: |
-        # Extract current version
-        $filePath = "$env:GITHUB_WORKSPACE\src\myLogin.au3"
-        $content = Get-Content -Path $filePath -Raw
-        
-        # Update version in Const
-        if ($content -match 'Const \$g_sVersion\s*=\s*"([0-9]+)\.([0-9]+)"') {
-          $major = [int]$matches[1]
-          $minor = [int]$matches[2]
-          
-          # Increment logic (1.9 → 2.0)
-          if ($minor -ge 9) {
-            $major++
-            $minor = 0
-          } else {
-            $minor++
-          }
-          
-          $newVersion = "$major.$minor"
-          echo "new_version=$newVersion" >> $env:GITHUB_OUTPUT
-          
-          # Update CONST keeping exact format
-          $updatedContent = $content -replace `
-            '(Const \$g_sVersion\s*=\s*")([0-9]+\.[0-9]+)(")', `
-            "`${1}$newVersion`${3}"
-            
-          # Update version pragmas
-          $updatedContent = $updatedContent -replace `
-            '(#pragma compile\((ProductVersion|FileVersion),\s*)([0-9]+\.[0-9]+)(\))', `
-            "`${1}$newVersion`${4}"
-            
-          Set-Content -Path $filePath -Value $updatedContent -NoNewline
-        }
-        
-    - name: Set up AutoIt
-      run: |
-        # Download and install AutoIt
-        $autoitUrl = "https://www.autoitscript.com/cgi-bin/getfile.pl?autoit3/autoit-v3-setup.exe"
-        $installerPath = "$env:TEMP\autoit-installer.exe"
-        Invoke-WebRequest -Uri $autoitUrl -OutFile $installerPath
-        Start-Process -FilePath $installerPath -ArgumentList "/S" -Wait
-        
-        # Verify AutoIt installation
-        if (-not (Test-Path "C:\Program Files (x86)\AutoIt3\Aut2Exe\Aut2Exe.exe")) {
-          echo "::error::AutoIt installation failed"
-          exit 1
-        }
-    
-    - name: Compile script
-      run: |
-        $outputPath = "$env:GITHUB_WORKSPACE\myLogin.exe"
-        
-        # Compile with detailed output
-        & "C:\Program Files (x86)\AutoIt3\Aut2Exe\Aut2Exe.exe" `
-          /in "$env:GITHUB_WORKSPACE\src\myLogin.au3" `
-          /out "$outputPath" `
-          /comp 0 `
-          /nopack | Out-String -Stream | ForEach-Object {
-            if ($_ -match "error") { Write-Error $_ }
-            else { Write-Output $_ }
-          }
-        
-        # Verify compilation
-        if (Test-Path $outputPath) {
-          echo "::notice::Compilation successful - Executable size: $((Get-Item $outputPath).Length) bytes"
-        } else {
-          echo "::error::Compilation failed - No output file created"
-          exit 1
-        }
+    #########################################################################
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
+    - name: Delete all releases
+      if: env.DELETE_RELEASES_TAG == 'true'
+      uses: actions/github-script@v6
       with:
-        name: myLogin${{ steps.version.outputs.new_version }}
-        path: |
-          myLogin.exe
-          lang/*.ini
-          
-    - name: Commit the new version
+          script: |
+            // Versión corregida - usa github directamente
+            const releases = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            
+            for (const release of releases.data) {
+              await github.rest.repos.deleteRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.id,
+              });
+              console.log(`Deleted release: ${release.name}`);
+            }
+            
+    - name: Delete all tags
+      if: env.DELETE_RELEASES_TAG == 'true'
+      shell: bash
       run: |
         git config --global user.name "GitHub Actions"
         git config --global user.email "actions@github.com"
-        git add src/myLogin.au3
-        git commit -m "⬆️ Auto-update version to ${{ steps.version.outputs.new_version }} [skip ci]"
+        git remote set-url origin https://${{ github.token }}@github.com/${{ github.repository }}.git
+        
+        # Primero sincroniza los tags locales con el remoto
+        git fetch --prune --prune-tags
+        
+        # Elimina tags locales primero
+        git tag -l | xargs git tag -d
+        
+        # Luego elimina los tags remotos (solo los que existen)
+        git ls-remote --tags origin | awk '{print $2}' | while read ref; do
+          tag=${ref#refs/tags/}
+          if git ls-remote --exit-code origin refs/tags/$tag >/dev/null 2>&1; then
+            git push origin --delete $tag
+            echo "Successfully deleted tag: $tag"
+          else
+            echo "Tag $tag doesn't exist on remote, skipping"
+          fi
+        done
+        
+######################################################################### get upd/version
+
+    - name: Get and update version
+      run: |
+        $filePath = "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}"
+        if (!(Test-Path $filePath)) { Write-Error "File not found: $filePath"; exit 1 }
+        
+        $content = [System.IO.File]::ReadAllText($filePath)
+        if ($content -notmatch 'Const \$g_sVersion\s*=\s*"(\d+)\.(\d+)"') { Write-Error "Version pattern not found"; exit 1 }
+        
+        $major, $minor = [int]$matches[1], [int]$matches[2]
+        $newVersion = if ($minor -ge 9) { "$($major+1).0" } else { "$major.$($minor+1)" }
+        
+        $updatedContent = $content -replace `
+          '(Const \$g_sVersion\s*=\s*")\d+\.\d+(")', "`${1}$newVersion`${2}" `
+          -replace '(#pragma compile\((ProductVersion|FileVersion),\s*)\d+\.\d+(\))', "`${1}$newVersion`${3}"
+          
+        [System.IO.File]::WriteAllText($filePath, $updatedContent)
+        echo "OLD_VERSION=$($matches[1]).$($matches[2])" >> $env:GITHUB_ENV
+        echo "NEW_VERSION=$newVersion" >> $env:GITHUB_ENV
+        
+######################################################################### autoit tool
+
+    - name: Setup AutoIt Tool
+      id: autoit_tool
+      uses: whatk233/setup-autoit-compiler-toolkit@v0.3
+      continue-on-error: true
+
+######################################################################### autoit setup
+
+    - name: Fallback AutoIt Setup
+      if: steps.autoit_tool.outcome == 'failure'
+      run: |
+        # Download and install AutoIt
+        $installerPath = "$env:TEMP\autoit-installer.exe"
+        Invoke-WebRequest -Uri "https://www.autoitscript.com/cgi-bin/getfile.pl?autoit3/autoit-v3-setup.exe" -OutFile $installerPath
+        Start-Process -FilePath $installerPath -ArgumentList "/S" -Wait
+        
+        # Verify AutoIt installation
+        $aut2exePath = "C:\Program Files (x86)\AutoIt3\Aut2Exe\Aut2Exe.exe"
+        echo "AUT2EXE=$aut2exePath" >> $env:GITHUB_ENV
+        
+        if (-not (Test-Path "$aut2exePath")) {
+          echo "::error::AutoIt installation failed"
+          exit 1
+        }
+        
+######################################################################### compile au3/exe
+
+    - name: Compile with Aut2Exe
+      run: |
+        $scriptPath = "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}"
+        $outputPath = "$env:GITHUB_WORKSPACE\${{ env.OUTPUT_PATH }}"
+
+        # Verify script exists
+        if (-not (Test-Path $scriptPath)) {
+          echo "::error::Script not found at $scriptPath"
+          exit 1
+        }
+        
+        # Determine which Aut2Exe to use
+        $aut2exePath = if (Test-Path "$env:AUTOIT_COMPILER_TOOLKIT\Aut2Exe\Aut2exe.exe") {
+          "$env:AUTOIT_COMPILER_TOOLKIT\Aut2Exe\Aut2exe.exe"
+        } else {
+          "${{ env.AUT2EXE }}"
+        }
+        
+        # Compile with detailed output
+        & "$aut2exePath" /in "$scriptPath" /out "$outputPath" /comp 0 /nopack | 
+        Where-Object { $_ -match "error" } | Write-Error
+        
+        # Verify compilation
+        if (-not (Test-Path $outputPath)) {
+          echo "::error::Compilation failed - No output file created"
+          exit 1
+        }
+        echo "::notice::Compilation successful - Executable size: $((Get-Item $outputPath).Length) bytes"
+
+######################################################################### SignPath signature
+
+    - name: Sign executable with SignPath
+      if: env.ENABLE_SIGNPATH == 'true'
+      run: |
+        # Install the SignPath PowerShell module if it is not present
+        if (-not (Get-Module -ListAvailable -Name SignPath)) {
+          Install-Module -Name SignPath -Force -Scope CurrentUser -AllowClobber
+        }
+        Import-Module SignPath
+        
+        # Send signature request
+        try {
+          Submit-SigningRequest `
+            -InputArtifactPath "${{ env.OUTPUT_PATH }}" `
+            -ApiToken "${{ secrets.SIGNPATH_TOKEN }}" `
+            -OrganizationId "${{ secrets.SIGNPATH_ORG_ID }}" `
+            -ProjectSlug "${{ env.SCRIPT_NAME }}" `
+            -SigningPolicySlug "${{ env.SCRIPT_NAME }}" `
+            -OutputArtifactPath "${{ env.OUTPUT_PATH }}.signed.exe" `
+            -WaitForCompletion
+
+          # Replace the unsigned executable with the signed one
+          Move-Item -Path "${{ env.OUTPUT_PATH }}.signed.exe" -Destination "${{ env.OUTPUT_PATH }}" -Force
+          echo "::notice::Executable signed successfully"
+        } catch {
+          echo "::error::Failed to sign executable: $_"
+          exit 1
+        }
+        
+######################################################################### GPG signature
+
+    - name: Sign executable with GPG
+      run: |
+        # Import private key
+        echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+        
+        # Sign the executable
+        gpg --batch --yes --pinentry-mode loopback `
+          --passphrase "${{ secrets.GPG_PASSPHRASE }}" `
+          --local-user "${{ secrets.GPG_KEY_ID }}" `
+          --output "${{ env.SCRIPT_NAME }}.sig" `
+          --detach-sig "${{ env.SCRIPT_NAME }}.exe"
+        
+        # Verify the signature
+        gpg --verify "${{ env.SCRIPT_NAME }}.sig" "${{ env.SCRIPT_NAME }}.exe"
+        
+        if ($LASTEXITCODE -ne 0) {
+          echo "::error::GPG signature verification failed"
+          exit 1
+        }
+        
+######################################################################### compress files
+
+    - name: Create ZIP
+      id: package
+      run: |
+        $zipName = "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}.zip"
+        Compress-Archive -Path "${{ env.OUTPUT_PATH }}", "lang" -DestinationPath $zipName -Force
+        echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+
+######################################################################### compress files (optional)
+
+    #- name: Upload artifact
+    #  uses: actions/upload-artifact@v4
+    #  with:
+    #    name: ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}
+    #    path: |
+    #      ${{ env.OUTPUT_PATH }}
+    #      lang/*.ini
+
+######################################################################### create push/tag
+
+    - name: Create push changes and tag release
+      env:
+        GH_TOKEN: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
+      run: |
+        # Configure GPG to sign commits
+        git config --global user.signingkey "${{ secrets.GPG_KEY_ID }}"
+        git config --global commit.gpgsign true
+        git config --global tag.gpgsign true
+        
+        # Configure the name and email for the commits
+        #git config --global user.name "GitHub Actions"
+        #git config --global user.email "actions@github.com"
+        git config --global user.name "mlibre2"
+        git config --global user.email "112137590+mlibre2@users.noreply.github.com"
+        
+        # Commit changes
+        git add ${{ env.SCRIPT_PATH }}
+        # -m = "actions-user" / -S = forces signing "redundant if commit.gpgsign=true, but useful for debugging"
+        git commit -S -m "⬆️ Auto-update version to ${{ env.NEW_VERSION }} [skip ci]"
         git push origin HEAD:main
+        
+        # Create tag (-a = "actions-user" / -s = create a tag signed with GPG key)
+        git tag -s "${{ env.NEW_VERSION }}" -m "${{ env.NEW_VERSION }}"
+        git push origin "${{ env.NEW_VERSION }}"
+        
+        # Create initial release
+        gh release create "${{ env.NEW_VERSION }}" `
+          --title "${{ env.NEW_VERSION }}" `
+          --notes "- [ ] Analysis in progress..." `
+          "${{ steps.package.outputs.zip_name }}" `
+          "${{ env.SCRIPT_NAME }}.sig"
+
+######################################################################### virustotal
+
+    - name: Analyze URL with VirusTotal
+      if: env.ENABLE_VIRUSTOTAL == 'true'
+      run: |
+        $ZIP_URL = "https://github.com/${{ github.repository }}/releases/download/${{ env.NEW_VERSION }}/${{ steps.package.outputs.zip_name }}"
+        
+        # Headers API v3
+        $headers = @{
+          "x-apikey" = "${{ secrets.VIRUSTOTAL_API_KEY }}"
+          "Accept" = "application/json"
+          "Content-Type" = "application/x-www-form-urlencoded"
+        }
+        
+        try {
+          # Correctly encode the URL for the request body
+          $encodedUrl = [System.Web.HttpUtility]::UrlEncode($ZIP_URL)
+          $postParams = "url=$encodedUrl"
+          
+          # Send POST request
+          $response = Invoke-RestMethod -Uri "https://www.virustotal.com/api/v3/urls" `
+                                       -Method Post `
+                                       -Headers $headers `
+                                       -Body $postParams
+                                       
+          # Process the response
+          $analysisId = $response.data.id
+
+          # Removes 'u-' prefix and numeric suffix
+          $urlId = $analysisId -replace '^u-|-\d+$'
+          
+          # Build report URL
+          $VT_GUI_URL = "https://www.virustotal.com/gui/url/$urlId"
+          
+          # Save the URL in environment variables
+          Add-Content -Path $env:GITHUB_ENV -Value "VT_GUI_URL=$VT_GUI_URL"
+          Write-Output "VirusTotal Report URL: $VT_GUI_URL"
+          
+        } catch {
+          # Detailed error handling
+          $errorDetails = $_
+          if ($_.Exception.Response) {
+            $streamReader = [System.IO.StreamReader]::new($_.Exception.Response.GetResponseStream())
+            $errorResponse = $streamReader.ReadToEnd() | ConvertFrom-Json
+            $streamReader.Close()
+            Write-Error "VirusTotal API Error: $($errorResponse.error.message)"
+          } else {
+            Write-Error "Error general: $($errorDetails.Exception.Message)"
+          }
+          exit 1
+        }
+        
+######################################################################### update release notes
+
+    - name: Update release notes with VirusTotal URL
+      env:
+        GH_TOKEN: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
+      run: |
+        $updatedNotes = @'
+        # :building_construction: Automated release <img align="right" width="32" height="32" alt="Ico" src="https://github.com/user-attachments/assets/c8c08b6a-927c-4278-917a-c23b10e6491d" />
+        
+        - Analysis completed
+        
+        ## :recycle: Full Changelog
+        
+        - Versions: [`${{ env.OLD_VERSION }}...${{ env.NEW_VERSION }}`](https://github.com/mlibre2/myLoginCompile/compare/${{ env.OLD_VERSION }}...${{ env.NEW_VERSION }})
+        
+        ## :warning: Known issue
+        
+        - Security Warning When Opening File [#2](https://github.com/mlibre2/myLogin/issues/2)
+        
+        ## :beginner: Security vendors' analysis
+        
+        - [x] [VirusTotal](${{ env.VT_GUI_URL || '#' }}?nocache=1)
+        
+        ## :inbox_tray: Downloads
+        
+        [![GitHub release (by tag)](https://img.shields.io/github/downloads/mlibre2/myLoginCompile/${{ env.NEW_VERSION }}/total?style=for-the-badge)](https://github.com/mlibre2/myLoginCompile/releases/download/${{ env.NEW_VERSION }}/${{ steps.package.outputs.zip_name }})
+        '@
+        
+        # Update the release notes
+        gh release edit "${{ env.NEW_VERSION }}" --notes "$updatedNotes"
+      #env:
+      #  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+    - name: Add random reactions to release
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
+        script: |
+          const { data: release } = await github.rest.repos.getReleaseByTag({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            tag: '${{ env.NEW_VERSION }}'
+          });
+          
+          // Reactions allowed by GitHub API for releases
+          const reactions = ['+1', 'heart', 'hooray', 'rocket', 'eyes', 'laugh']
+            .sort(() => Math.random() - 0.5)  // Shuffle array
+            .slice(0, 2);  // Take first 2 elements
+            
+          console.log(`Adding reactions: ${reactions.join(' ... ')}`);
+          
+          // Add reactions in parallel
+          await Promise.all(reactions.map(content => 
+            github.rest.reactions.createForRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.id,
+              content
+            })
+          ));
