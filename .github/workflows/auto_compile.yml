@@ -348,7 +348,7 @@ jobs:
         
         ## :recycle: Full Changelog
         
-        - Versions: [`${{ env.OLD_VERSION }}...${{ env.NEW_VERSION }}`](https://github.com/mlibre2/myLoginCompile/compare/${{ env.OLD_VERSION }}...${{ env.NEW_VERSION }})
+        - Versions: [`${{ env.OLD_VERSION }}...${{ env.NEW_VERSION }}`](https://github.com/mlibre2/myLogin/compare/${{ env.OLD_VERSION }}...${{ env.NEW_VERSION }})
         
         ## :warning: Known issue
         
@@ -360,7 +360,7 @@ jobs:
         
         ## :inbox_tray: Downloads
         
-        [![GitHub release (by tag)](https://img.shields.io/github/downloads/mlibre2/myLoginCompile/${{ env.NEW_VERSION }}/total?style=for-the-badge)](https://github.com/mlibre2/myLoginCompile/releases/download/${{ env.NEW_VERSION }}/${{ steps.package.outputs.zip_name }})
+        [![GitHub release (by tag)](https://img.shields.io/github/downloads/mlibre2/myLogin/${{ env.NEW_VERSION }}/total?style=for-the-badge)](https://github.com/mlibre2/myLogin/releases/download/${{ env.NEW_VERSION }}/${{ steps.package.outputs.zip_name }})
         '@
         
         # Update the release notes
