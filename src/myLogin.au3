@@ -5,8 +5,6 @@
 #pragma compile(FileVersion, 2.0)					; auto-incremental by workflows (compile)
 #pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
 
-Const $g_sVersion = "2.0"			; auto-incremental by workflows (compile)
-
 #NoTrayIcon							; Will not be shown when the script starts
 
 #include <GUIConstantsEx.au3>		; GUI Create, events
@@ -22,6 +20,7 @@ Const $g_sVersion = "2.0"			; auto-incremental by workflows (compile)
 #include <WinAPIGdi.au3>			; UDF Library
 
 ; configuration
+Const $g_sVersion = "2.0"							; auto-incremental by workflows (compile)
 $g_sPassHash = ""
 Const $g_iTransparencyGUI = 150						; 0-255 (transparent-opaque) fullscreen
 Const $g_iTransparencyPassGUI = 180					; 0-255 (transparent-opaque) for window
@@ -50,7 +49,7 @@ _LoadLanguage()
 
 ;~ Check single instance prevent double execution
 If Not _Singleton("ScreenLockWindow", 1) Then
-   MsgBox($MB_ICONWARNING, @ScriptName, _getLang("program_already_open"), 3)
+   MsgBox($MB_ICONWARNING, @ScriptName, _getLang("PROGRAM_ALREADY_OPEN"), 3)
    Exit
 EndIf
 
@@ -72,7 +71,7 @@ GUISetBkColor($g_iBkColorPassGUI, $hPassGUI)
 WinSetTrans($hPassGUI, "", $g_iTransparencyPassGUI)
 
 ; Position controls
-GUICtrlCreateLabel(_getLang("start_time") & " " & _Time(), 10, 5)
+GUICtrlCreateLabel(_getLang("START_TIME") & " " & _Time(), 10, 5)
 GUICtrlSetFont(-1, 6, $FW_NORMAL, $GUI_FONTNORMAL, "Consolas")
 GUICtrlSetColor(-1, $g_iStyle > 0 ? $g_iColorTxt : 0x000000)
 
@@ -81,13 +80,13 @@ GUICtrlSetFont(-1, 6, $FW_NORMAL, $GUI_FONTNORMAL, "Consolas")
 GUICtrlSetColor(-1, $g_iStyle > 0 ? $g_iColorTxt : 0x000000)
 
 $idIcoPass = GUICtrlCreateIcon("shell32.dll", -245, ($g_iWidthPassGUI - 32) / 2, 10, 32, 32)
-GUICtrlSetTip(-1, _getLang("restricted_access"))
+GUICtrlSetTip(-1, _getLang("RESTRICTED_ACCESS"))
 
-$idTxtPass = GUICtrlCreateLabel(_getLang("system_locked"), 10, 45, $g_iWidthPassGUI - 10, 20, $SS_CENTER)
+$idTxtPass = GUICtrlCreateLabel(_getLang("SYSTEM_LOCKED"), 10, 45, $g_iWidthPassGUI - 10, 20, $SS_CENTER)
 GUICtrlSetFont(-1, 12, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
 GUICtrlSetColor(-1, $g_iStyle > 0 ? $g_iColorTxt : 0x000000)
 
-$idTxtMsg = GUICtrlCreateLabel(_getLang("enter_password"), 10, 65, $g_iWidthPassGUI - 10, 20, $SS_CENTER)
+$idTxtMsg = GUICtrlCreateLabel(_getLang("ENTER_PASSWORD"), 10, 65, $g_iWidthPassGUI - 10, 20, $SS_CENTER)
 GUICtrlSetFont(-1, 10, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
 GUICtrlSetColor(-1, $g_iStyle > 0 ? $g_iColorTxt : 0x000000)
 
@@ -101,21 +100,21 @@ GUICtrlSetFont(-1, 8, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
 $idPowerOff = GUICtrlCreateButton(-1, 20, 146, 40, 40, $BS_ICON)
 GUICtrlSetImage(-1, "shell32.dll", -28)
 GUICtrlSetState(-1, $g_bDisablePowerOff ? $GUI_DISABLE : $GUI_ENABLE)
-GUICtrlSetTip(-1, _getLang("shutdown"))
+GUICtrlSetTip(-1, _getLang("SHUTDOWN"))
 
 $idReboot = GUICtrlCreateButton(-1, 65, 146, 40, 40, $BS_ICON)
 GUICtrlSetImage(-1, "shell32.dll", -239)
 GUICtrlSetState(-1, $g_bDisableReboot ? $GUI_DISABLE : $GUI_ENABLE)
-GUICtrlSetTip(-1, _getLang("reboot"))
+GUICtrlSetTip(-1, _getLang("REBOOT"))
 
 $idLockSession = GUICtrlCreateButton(-1, 110, 146, 40, 40, $BS_ICON)
 GUICtrlSetImage(-1, "shell32.dll", -112)
 GUICtrlSetState(-1, $g_bDisableLockSession ? $GUI_DISABLE : $GUI_ENABLE)
-GUICtrlSetTip(-1, _getLang("lock_session"))
+GUICtrlSetTip(-1, _getLang("LOCK_SESSION"))
 
 $idUnlock = GUICtrlCreateButton(-1, 290, 146, 40, 40, $BS_ICON)
 GUICtrlSetImage(-1, "shell32.dll", -177)
-GUICtrlSetTip(-1, _getLang("unlock"))
+GUICtrlSetTip(-1, _getLang("UNLOCK"))
 
 SoundPlay(@WindowsDir & "\media\tada.wav", $SOUND_NOWAIT)
 
@@ -149,7 +148,7 @@ While 1
             GUICtrlSetImage($idIcoPass, "imageres.dll", -102)
             GUISetBkColor(0x0F8600, $hGUI)	; semi dark green
 
-            GUICtrlSetData($idTxtPass, _getLang("unlocked"))
+            GUICtrlSetData($idTxtPass, _getLang("UNLOCKED"))
             GUICtrlSetColor($idTxtPass, $g_iStyle > 0 ? 0x0FFF00 : 0x0F9800) ; green/dark green
 
             GUICtrlSetData($idTxtMsg, "")
@@ -175,7 +174,7 @@ While 1
 
          $g_iFailAttempts += 1
 
-         GUICtrlSetData($idErrorLabel, _getLang("incorrect_password", $g_iFailAttempts))
+         GUICtrlSetData($idErrorLabel, _getLang("INCORRECT_PASSWORD", $g_iFailAttempts))
          GUICtrlSetData($idInput, "")
 
          GUICtrlSetImage($idIcoPass, "imageres.dll", -101)
@@ -185,9 +184,7 @@ While 1
 
 		 _DisableButtons(True)
 
-		 If $g_iFailAttempts >= 3 Then
-			Sleep(100 * $g_iFailAttempts)
-		 EndIf
+		 If $g_iFailAttempts >= 3 Then Sleep(100 * $g_iFailAttempts)
 
 		 Sleep(300)
 
@@ -235,7 +232,7 @@ Func _chkExplorer()
 	  If Not StringInStr($sShellValue, $g_sExplorer) > 0 Then
 		 RegWrite($sRegPath, $sRegValue, "REG_SZ", $g_sExplorer)
 
-		 MsgBox($MB_ICONWARNING, _getLang("explorer_error_title"), _getLang("explorer_error_msg") & @CRLF & @CRLF & $sRegValue & " " & _getLang("from_winlogon") & ": " & @CRLF & @CRLF & $sShellValue & @CRLF & @CRLF & _getLang("explorer_fix_msg"))
+		 MsgBox($MB_ICONWARNING, _getLang("EXPLORER_ERROR_TITLE"), _getLang("EXPLORER_ERROR_MSG") & @CRLF & @CRLF & $sRegValue & " " & _getLang("FROM_WINLOGON") & ": " & @CRLF & @CRLF & $sShellValue & @CRLF & @CRLF & _getLang("EXPLORER_FIX_MSG"))
 
 		 Run("cmd /c shutdown /r /f /t 0", "", @SW_HIDE)
 		 Exit
@@ -278,29 +275,29 @@ Func _GenerateNewHash()
 
    ; Loop until valid password is entered
    While Not $bValid
-      $sInput = InputBox(_getLang("hash_generator_title"), _getLang("hash_generator_msg") & @CRLF & @CRLF & "- " & _getLang("min_chars", $g_iPassMinLength, $g_iPassMaxLength) & @CRLF & "- " & _getLang("no_spaces"), "", "*", 350)
+      $sInput = InputBox(_getLang("HASH_GENERATOR_TITLE"), _getLang("HASH_GENERATOR_MSG") & @CRLF & @CRLF & "- " & _getLang("MIN_CHARS", $g_iPassMinLength, $g_iPassMaxLength) & @CRLF & "- " & _getLang("NO_SPACES"), "", "*", 350)
 
       ; If user cancels
       If @error Then
-         MsgBox($MB_ICONINFORMATION, _getLang("info"), _getLang("hash_generation_canceled"))
+         MsgBox($MB_ICONINFORMATION, _getLang("INFO"), _getLang("HASH_GENERATION_CANCELED"))
          If $g_bProcessExists Then Exit
 
       EndIf
 
       ; Validations
       If StringLen($sInput) < $g_iPassMinLength Or StringLen($sInput) > $g_iPassMaxLength Then
-         MsgBox($MB_ICONWARNING, _getLang("error_title"), _getLang("min_chars_error", $g_iPassMinLength,  $g_iPassMaxLength))
+         MsgBox($MB_ICONWARNING, _getLang("ERROR_TITLE"), _getLang("MIN_CHARS_ERROR", $g_iPassMinLength,  $g_iPassMaxLength))
 	  ElseIf StringIsSpace($sInput) Then
-         MsgBox($MB_ICONWARNING, _getLang("error_title"), _getLang("spaces_only_error"))
+         MsgBox($MB_ICONWARNING, _getLang("ERROR_TITLE"), _getLang("SPACES_ONLY_ERROR"))
       ElseIf StringInStr($sInput, " ") Then
-         MsgBox($MB_ICONWARNING, _getLang("error_title"), _getLang("spaces_not_allowed_error"))
+         MsgBox($MB_ICONWARNING, _getLang("ERROR_TITLE"), _getLang("SPACES_NOT_ALLOWED_ERROR"))
       Else
          $bValid = True
       EndIf
    WEnd
 
    ; Generate and display hash
-   InputBox(_getLang("generated_hash_title"), _getLang("generated_hash_msg") & @CRLF & @CRLF & $sInput & @CRLF & @CRLF & _getLang("your_new_hash"), _getHash($sInput), "", 350)
+   InputBox(_getLang("GENERATED_HASH_TITLE"), _getLang("GENERATED_HASH_MSG") & @CRLF & @CRLF & $sInput & @CRLF & @CRLF & _getLang("YOUR_NEW_HASH"), _getHash($sInput), "", 350)
 EndFunc
 
 Func _ProcessParameters()
@@ -317,7 +314,7 @@ Func _ProcessParameters()
 
                ; Basic hash validation
                If StringLen($g_sPassHash) <> 34 Or StringLeft($g_sPassHash, 2) <> "0x" Then
-                  MsgBox($MB_ICONERROR, _getLang("error_title"), _getLang("invalid_hash") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("generate_hash_help") & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
+                  MsgBox($MB_ICONERROR, _getLang("ERROR_TITLE"), _getLang("INVALID_HASH") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("GENERATE_HASH_HELP") & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
                   If $g_bProcessExists Then Exit
                EndIf
             EndIf
@@ -355,7 +352,7 @@ Func _ProcessParameters()
    Next
 
    If $g_sPassHash = "" Then
-      $iButton = MsgBox($MB_YESNO, _getLang("error_title"), _getLang("missing_hash") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("generate_hash_help") & @CRLF & @CRLF & @ScriptName & " /GenerateHash" & @CRLF & @CRLF & @CRLF & _getLang("generate_now"))
+      $iButton = MsgBox($MB_YESNO, _getLang("ERROR_TITLE"), _getLang("MISSING_HASH") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("GENERATE_HASH_HELP") & @CRLF & @CRLF & @ScriptName & " /GenerateHash" & @CRLF & @CRLF & @CRLF & _getLang("GENERATE_NOW"))
 
       If $iButton = $IDYES Then _GenerateNewHash()
 
@@ -374,38 +371,48 @@ EndFunc
 Func _LoadLanguage()
    $sLangFile = @ScriptDir & "\lang\" & $g_sLanguage & ".ini"
 
+   ; If the language file does not exist, load English by default.
    If Not FileExists($sLangFile) Then $sLangFile = @ScriptDir & "\lang\en.ini"
    If Not FileExists($sLangFile) Then Exit MsgBox($MB_ICONERROR, "Error", "Language file not found")
 
+   ; Read file
    $hFile = FileOpen($sLangFile, $FO_UTF8_NOBOM + $FO_READ)
-
    If $hFile = -1 Then Exit MsgBox($MB_ICONERROR, "Error", "Unable to open language file")
-
    $sContent = FileRead($hFile)
-
    FileClose($hFile)
 
+   ; Process lines
    $aLines = StringSplit(StringStripCR($sContent), @LF)
    $bInSection = False
 
    For $i = 1 To $aLines[0]
 	  $sLine = StringStripWS($aLines[$i], $STR_STRIPLEADING + $STR_STRIPTRAILING)
 
+	  ; Ignore empty lines or comments
 	  If $sLine = "" Or StringLeft($sLine, 1) = ";" Then ContinueLoop
 
+	  ; Check if it is a section (case-insensitive)
 	  If StringLeft($sLine, 1) = "[" And StringRight($sLine, 1) = "]" Then
-		 $bInSection = (StringMid($sLine, 2, StringLen($sLine)-2) = $g_sLanguage)
+		 $sSectionName = StringMid($sLine, 2, StringLen($sLine) - 2)
+		 $bInSection = (StringLower($sSectionName) = StringLower($g_sLanguage))
 		 ContinueLoop
-
 	  EndIf
 
+	  ; Process key=value if it is in the correct section
 	  If $bInSection Then
-			$iPos = StringInStr($sLine, "=")
-            If $iPos > 0 Then
-			   $g_oLangLookup.Item(StringStripWS(StringLeft($sLine, $iPos-1), 3)) = StringStripWS(StringMid($sLine, $iPos+1), 3)
-            EndIf
-	  EndIf
+		 $iPos = StringInStr($sLine, "=")
+		 If $iPos > 0 Then
+			; Get key and value
+			$sKey = StringStripWS(StringLeft($sLine, $iPos - 1), $STR_STRIPLEADING + $STR_STRIPTRAILING)
+			$sValue = StringStripWS(StringMid($sLine, $iPos + 1), $STR_STRIPLEADING + $STR_STRIPTRAILING)
 
+			; Convert key to uppercase if not already
+			If Not StringIsUpper($sKey) Then $sKey = StringUpper($sKey)
+
+			; Save to dictionary (always in capital letters)
+			$g_oLangLookup.Item($sKey) = $sValue
+		 EndIf
+	  EndIf
    Next
 EndFunc
 
@@ -521,9 +528,7 @@ Func _getOSLang()
 
    ; Find the language code in the table
    For $i = 0 To UBound($aLanguageMap) - 1
-	  If $aLanguageMap[$i][0] = $sLangCode Then
-		 Return $aLanguageMap[$i][1]
-	  EndIf
+	  If $aLanguageMap[$i][0] = $sLangCode Then Return $aLanguageMap[$i][1]
    Next
 
    ; If not found, return English by default
