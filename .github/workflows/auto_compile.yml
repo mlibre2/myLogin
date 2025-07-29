@@ -21,7 +21,7 @@ jobs:
       SCRIPT_NAME: myLogin
       ENABLE_SIGNPATH: 'true'
       ENABLE_VIRUSTOTAL: 'true'
-      DELETE_RELEASES_TAG: 'false'  # required permissions write (only cleaning tests)
+      DELETE_RELEASES_TAG: 'false'
 
 ######################################################################### steps
 
@@ -53,73 +53,90 @@ jobs:
     #    echo "OWNER=$($parts[0])" >> $env:GITHUB_ENV
     #    echo "REPO=$($parts[1])" >> $env:GITHUB_ENV
 
-    #########################################################################
+######################################################################### del all releases/tags
 
-    - name: Delete all releases
+    - name: Delete all releases and tags
       if: env.DELETE_RELEASES_TAG == 'true'
       uses: actions/github-script@v6
       with:
-          script: |
-            // Versión corregida - usa github directamente
-            const releases = await github.rest.repos.listReleases({
+        github-token: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
+        script: |
+          // Delete releases
+          const releases = await github.rest.repos.listReleases({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+          });
+          
+          await Promise.all(releases.data.map(release => 
+            github.rest.repos.deleteRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-            });
-            
-            for (const release of releases.data) {
-              await github.rest.repos.deleteRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                release_id: release.id,
-              });
-              console.log(`Deleted release: ${release.name}`);
-            }
-            
-    - name: Delete all tags
-      if: env.DELETE_RELEASES_TAG == 'true'
-      shell: bash
-      run: |
-        git config --global user.name "GitHub Actions"
-        git config --global user.email "actions@github.com"
-        git remote set-url origin https://${{ github.token }}@github.com/${{ github.repository }}.git
-        
-        # Primero sincroniza los tags locales con el remoto
-        git fetch --prune --prune-tags
-        
-        # Elimina tags locales primero
-        git tag -l | xargs git tag -d
-        
-        # Luego elimina los tags remotos (solo los que existen)
-        git ls-remote --tags origin | awk '{print $2}' | while read ref; do
-          tag=${ref#refs/tags/}
-          if git ls-remote --exit-code origin refs/tags/$tag >/dev/null 2>&1; then
-            git push origin --delete $tag
-            echo "Successfully deleted tag: $tag"
-          else
-            echo "Tag $tag doesn't exist on remote, skipping"
-          fi
-        done
+              release_id: release.id
+            })
+          ));
+          
+          // Delete tags
+          const tags = await github.rest.repos.listTags({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+          });
+          
+          await Promise.all(tags.data.map(tag =>
+            github.rest.git.deleteRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `tags/${tag.name}`
+            })
+          ));
         
 ######################################################################### get upd/version
 
     - name: Get and update version
       run: |
-        $filePath = "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}"
-        if (!(Test-Path $filePath)) { Write-Error "File not found: $filePath"; exit 1 }
+        filePath="$GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}"
         
-        $content = [System.IO.File]::ReadAllText($filePath)
-        if ($content -notmatch 'Const \$g_sVersion\s*=\s*"(\d+)\.(\d+)"') { Write-Error "Version pattern not found"; exit 1 }
+        # Verify that the file exists
+        if [ ! -f "$filePath" ]; then
+          echo "::error::File not found: $filePath"
+          exit 1
+        fi
         
-        $major, $minor = [int]$matches[1], [int]$matches[2]
-        $newVersion = if ($minor -ge 9) { "$($major+1).0" } else { "$major.$($minor+1)" }
+        # Temporarily convert to LF for processing (we'll save with CRLF at the end)
+        tempContent=$(cat "$filePath" | tr -d '\r')
         
-        $updatedContent = $content -replace `
-          '(Const \$g_sVersion\s*=\s*")\d+\.\d+(")', "`${1}$newVersion`${2}" `
-          -replace '(#pragma compile\((ProductVersion|FileVersion),\s*)\d+\.\d+(\))', "`${1}$newVersion`${3}"
-          
-        [System.IO.File]::WriteAllText($filePath, $updatedContent)
-        echo "OLD_VERSION=$($matches[1]).$($matches[2])" >> $env:GITHUB_ENV
-        echo "NEW_VERSION=$newVersion" >> $env:GITHUB_ENV
+        # Extract current version
+        if [[ ! "$tempContent" =~ Const[[:space:]]+\$g_sVersion[[:space:]]*=[[:space:]]*\"([0-9]+)\.([0-9]+)\" ]]; then
+          echo "::error::Version pattern not found in $filePath"
+          echo "::debug::Line with version:"
+          echo "$tempContent" | grep -m1 "Const \$g_sVersion" || echo "Not found"
+          exit 1
+        fi
+        
+        major=${BASH_REMATCH[1]}
+        minor=${BASH_REMATCH[2]}
+        old_version="${major}.${minor}"
+        
+        # Calculate new version
+        if (( minor >= 9 )); then
+          newVersion="$((major + 1)).0"
+        else
+          newVersion="${major}.$((minor + 1))"
+        fi
+        
+        # Update CONST y pragmas
+        updatedContent=$(echo "$tempContent" | \
+        awk -v new="$newVersion" '
+          /Const[[:space:]]+\$g_sVersion[[:space:]]*=/ {sub(/"([0-9]+\.){1}[0-9]+"/, "\"" new "\"")}
+          {print}' | \
+        sed -E "s/(#pragma compile\((ProductVersion|FileVersion),[[:space:]]*)[0-9]+\.[0-9]+(\))/\1${newVersion}\3/g")
+        
+        # Restore CRLF and write the file
+        echo "$updatedContent" | sed 's/$/\r/' > "$filePath"
+        
+        # Export environment variables
+        echo "OLD_VERSION=${old_version}" >> $GITHUB_ENV
+        echo "NEW_VERSION=$newVersion" >> $GITHUB_ENV
+      shell: bash
         
 ######################################################################### autoit tool
 
@@ -232,7 +249,7 @@ jobs:
         
 ######################################################################### compress files
 
-    - name: Create ZIP
+    - name: Create ZIP for releases
       id: package
       run: |
         $zipName = "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}.zip"
@@ -337,7 +354,7 @@ jobs:
         
 ######################################################################### update release notes
 
-    - name: Update release notes with VirusTotal URL
+    - name: Update release notes
       env:
         GH_TOKEN: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
       run: |
@@ -367,6 +384,8 @@ jobs:
         gh release edit "${{ env.NEW_VERSION }}" --notes "$updatedNotes"
       #env:
       #  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+######################################################################### add reactions
       
     - name: Add random reactions to release
       uses: actions/github-script@v6
