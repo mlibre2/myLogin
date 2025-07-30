@@ -5,11 +5,9 @@ on:
     branches: [ main ]
     paths:
       - 'src/**/*.au3'
-
-######################################################################### repo permissions (no token)
-
+      
 #permissions:
-#  contents: write  # push repo
+#  contents: write  # push repo (no token)
 
 ######################################################################### jobs
 
@@ -36,13 +34,6 @@ jobs:
         # no requerid
         ssh-strict: false
         show-progress: false
-        
-    #- name: get owner and repo names
-    #  shell: pwsh
-    #  run: |
-    #    $parts = "${{ github.repository }}" -split '/'
-    #    echo "OWNER=$($parts[0])" >> $env:GITHUB_ENV
-    #    echo "REPO=$($parts[1])" >> $env:GITHUB_ENV
         
 ######################################################################### get upd/version
 
