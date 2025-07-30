@@ -19,21 +19,12 @@ jobs:
     timeout-minutes: 3    # Maximum compilation time
     env:
       SCRIPT_NAME: myLogin
+      SCRIPT_PATH: 'src\'
       ENABLE_SIGNPATH: 'true'
       ENABLE_VIRUSTOTAL: 'true'
-      DELETE_RELEASES_TAG: 'false'
-
-######################################################################### steps
-
+      
     steps:
-    - name: Get/set environment variables
-      run: |
-        echo "SCRIPT_PATH=src\${{ env.SCRIPT_NAME }}.au3" >> $GITHUB_ENV
-        echo "OUTPUT_PATH=${{ env.SCRIPT_NAME }}.exe" >> $GITHUB_ENV
-      shell: bash
-
 ######################################################################### checkout
-
     - name: Checkout code
       uses: actions/checkout@v4
       with:
@@ -52,48 +43,12 @@ jobs:
     #    $parts = "${{ github.repository }}" -split '/'
     #    echo "OWNER=$($parts[0])" >> $env:GITHUB_ENV
     #    echo "REPO=$($parts[1])" >> $env:GITHUB_ENV
-
-######################################################################### del all releases/tags
-
-    - name: Delete all releases and tags
-      if: env.DELETE_RELEASES_TAG == 'true'
-      uses: actions/github-script@v6
-      with:
-        github-token: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
-        script: |
-          // Delete releases
-          const releases = await github.rest.repos.listReleases({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-          });
-          
-          await Promise.all(releases.data.map(release => 
-            github.rest.repos.deleteRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: release.id
-            })
-          ));
-          
-          // Delete tags
-          const tags = await github.rest.repos.listTags({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-          });
-          
-          await Promise.all(tags.data.map(tag =>
-            github.rest.git.deleteRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `tags/${tag.name}`
-            })
-          ));
         
 ######################################################################### get upd/version
 
     - name: Get and update version
       run: |
-        filePath="$GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}"
+        filePath="$GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}${{ env.SCRIPT_NAME }}.au3"
         
         # Verify that the file exists
         if [ ! -f "$filePath" ]; then
@@ -168,8 +123,8 @@ jobs:
 
     - name: Compile with Aut2Exe
       run: |
-        $scriptPath = "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}"
-        $outputPath = "$env:GITHUB_WORKSPACE\${{ env.OUTPUT_PATH }}"
+        $scriptPath = "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}${{ env.SCRIPT_NAME }}.au3"
+        $outputPath = "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_NAME }}.exe"
 
         # Verify script exists
         if (-not (Test-Path $scriptPath)) {
@@ -209,16 +164,16 @@ jobs:
         # Send signature request
         try {
           Submit-SigningRequest `
-            -InputArtifactPath "${{ env.OUTPUT_PATH }}" `
+            -InputArtifactPath "${{ env.SCRIPT_NAME }}.exe" `
             -ApiToken "${{ secrets.SIGNPATH_TOKEN }}" `
             -OrganizationId "${{ secrets.SIGNPATH_ORG_ID }}" `
             -ProjectSlug "${{ env.SCRIPT_NAME }}" `
             -SigningPolicySlug "${{ env.SCRIPT_NAME }}" `
-            -OutputArtifactPath "${{ env.OUTPUT_PATH }}.signed.exe" `
+            -OutputArtifactPath "${{ env.SCRIPT_NAME }}.signed.exe" `
             -WaitForCompletion
 
           # Replace the unsigned executable with the signed one
-          Move-Item -Path "${{ env.OUTPUT_PATH }}.signed.exe" -Destination "${{ env.OUTPUT_PATH }}" -Force
+          Move-Item -Path "${{ env.SCRIPT_NAME }}.signed.exe" -Destination "${{ env.SCRIPT_NAME }}.exe" -Force
           echo "::notice::Executable signed successfully"
         } catch {
           echo "::error::Failed to sign executable: $_"
@@ -250,12 +205,8 @@ jobs:
 ######################################################################### compress files
 
     - name: Create ZIP for releases
-      id: package
-      run: |
-        $zipName = "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}.zip"
-        Compress-Archive -Path "${{ env.OUTPUT_PATH }}", "lang" -DestinationPath $zipName -Force
-        echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
-
+      run: 7z a -tzip -bd -mx=9 "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}.zip" "${{ env.SCRIPT_NAME }}.exe" "lang"
+      
 ######################################################################### compress files (optional)
 
     #- name: Upload artifact
@@ -263,20 +214,18 @@ jobs:
     #  with:
     #    name: ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}
     #    path: |
-    #      ${{ env.OUTPUT_PATH }}
+    #      ${{ env.SCRIPT_NAME }}.exe
     #      lang/*.ini
 
-######################################################################### create push/tag
+######################################################################### config. git/gpg/commit/tag
 
-    - name: Create push changes and tag release
-      env:
-        GH_TOKEN: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
+    - name: Config. Git/GPG/Commit/Tag
       run: |
         # Configure GPG to sign commits
         git config --global user.signingkey "${{ secrets.GPG_KEY_ID }}"
         git config --global commit.gpgsign true
         git config --global tag.gpgsign true
-        
+
         # Configure the name and email for the commits
         #git config --global user.name "GitHub Actions"
         #git config --global user.email "actions@github.com"
@@ -284,7 +233,8 @@ jobs:
         git config --global user.email "112137590+mlibre2@users.noreply.github.com"
         
         # Commit changes
-        git add ${{ env.SCRIPT_PATH }}
+        git add "${{ env.SCRIPT_PATH }}${{ env.SCRIPT_NAME }}.au3"
+        
         # -m = "actions-user" / -S = forces signing "redundant if commit.gpgsign=true, but useful for debugging"
         git commit -S -m "⬆️ Auto-update version to ${{ env.NEW_VERSION }} [skip ci]"
         git push origin HEAD:main
@@ -292,20 +242,25 @@ jobs:
         # Create tag (-a = "actions-user" / -s = create a tag signed with GPG key)
         git tag -s "${{ env.NEW_VERSION }}" -m "${{ env.NEW_VERSION }}"
         git push origin "${{ env.NEW_VERSION }}"
-        
-        # Create initial release
-        gh release create "${{ env.NEW_VERSION }}" `
-          --title "${{ env.NEW_VERSION }}" `
-          --notes "- [ ] Analysis in progress..." `
-          "${{ steps.package.outputs.zip_name }}" `
-          "${{ env.SCRIPT_NAME }}.sig"
+
+######################################################################### create Release
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
+      with:
+        tag_name: ${{ env.NEW_VERSION }}
+        files: |
+          ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}.zip
+          ${{ env.SCRIPT_NAME }}.sig
 
 ######################################################################### virustotal
 
     - name: Analyze URL with VirusTotal
       if: env.ENABLE_VIRUSTOTAL == 'true'
       run: |
-        $ZIP_URL = "https://github.com/${{ github.repository }}/releases/download/${{ env.NEW_VERSION }}/${{ steps.package.outputs.zip_name }}"
+        $ZIP_URL = "https://github.com/${{ github.repository }}/releases/download/${{ env.NEW_VERSION }}/${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}.zip"
         
         # Headers API v3
         $headers = @{
@@ -377,7 +332,7 @@ jobs:
         
         ## :inbox_tray: Downloads
         
-        [![GitHub release (by tag)](https://img.shields.io/github/downloads/${{ github.repository }}/${{ env.NEW_VERSION }}/total?style=for-the-badge)](https://github.com/${{ github.repository }}/releases/download/${{ env.NEW_VERSION }}/${{ steps.package.outputs.zip_name }})
+        [![GitHub release (by tag)](https://img.shields.io/github/downloads/${{ github.repository }}/${{ env.NEW_VERSION }}/total?style=for-the-badge)](https://github.com/${{ github.repository }}/releases/download/${{ env.NEW_VERSION }}/${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}.zip)
         '@
         
         # Update the release notes
@@ -390,7 +345,6 @@ jobs:
     - name: Add random reactions to release
       uses: actions/github-script@v6
       with:
-        github-token: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
         script: |
           const { data: release } = await github.rest.repos.getReleaseByTag({
             owner: context.repo.owner,
