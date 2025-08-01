@@ -5,9 +5,11 @@ on:
     branches: [ main ]
     paths:
       - 'src/**/*.au3'
-      
+
+######################################################################### repo permissions (no token)
+
 #permissions:
-#  contents: write  # push repo (no token)
+#  contents: write  # push repo
 
 ######################################################################### jobs
 
@@ -34,7 +36,7 @@ jobs:
         # no requerid
         ssh-strict: false
         show-progress: false
-        
+            
 ######################################################################### get upd/version
 
     - name: Get and update version
@@ -182,11 +184,11 @@ jobs:
         gpg --batch --yes --pinentry-mode loopback `
           --passphrase "${{ secrets.GPG_PASSPHRASE }}" `
           --local-user "${{ secrets.GPG_KEY_ID }}" `
-          --output "${{ env.SCRIPT_NAME }}.sig" `
+          --output "${{ env.SCRIPT_NAME }}.exe.sig" `
           --detach-sig "${{ env.SCRIPT_NAME }}.exe"
         
         # Verify the signature
-        gpg --verify "${{ env.SCRIPT_NAME }}.sig" "${{ env.SCRIPT_NAME }}.exe"
+        gpg --verify "${{ env.SCRIPT_NAME }}.exe.sig" "${{ env.SCRIPT_NAME }}.exe"
         
         if ($LASTEXITCODE -ne 0) {
           echo "::error::GPG signature verification failed"
@@ -244,7 +246,7 @@ jobs:
         tag_name: ${{ env.NEW_VERSION }}
         files: |
           ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}.zip
-          ${{ env.SCRIPT_NAME }}.sig
+          ${{ env.SCRIPT_NAME }}.exe.sig
 
 ######################################################################### virustotal
 
@@ -301,35 +303,32 @@ jobs:
 ######################################################################### update release notes
 
     - name: Update release notes
+      uses: softprops/action-gh-release@v1
       env:
-        GH_TOKEN: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
-      run: |
-        $updatedNotes = @'
-        # :building_construction: Automated release <img align="right" width="32" height="32" alt="Ico" src="https://github.com/user-attachments/assets/c8c08b6a-927c-4278-917a-c23b10e6491d" />
-        
-        - Analysis completed
-        
-        ## :recycle: Full Changelog
-        
-        - Versions: [`${{ env.OLD_VERSION }}...${{ env.NEW_VERSION }}`](https://github.com/${{ github.repository }}/compare/${{ env.OLD_VERSION }}...${{ env.NEW_VERSION }})
-        
-        ## :warning: Known issue
-        
-        - Security Warning When Opening File [#2](https://github.com/${{ github.repository }}/issues/2)
-        
-        ## :beginner: Security vendors' analysis
-        
-        - [x] [VirusTotal](${{ env.VT_GUI_URL || '#' }}?nocache=1)
-        
-        ## :inbox_tray: Downloads
-        
-        [![GitHub release (by tag)](https://img.shields.io/github/downloads/${{ github.repository }}/${{ env.NEW_VERSION }}/total?style=for-the-badge)](https://github.com/${{ github.repository }}/releases/download/${{ env.NEW_VERSION }}/${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}.zip)
-        '@
-        
-        # Update the release notes
-        gh release edit "${{ env.NEW_VERSION }}" --notes "$updatedNotes"
-      #env:
-      #  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
+      with:
+        tag_name: ${{ env.NEW_VERSION }}
+        body: |
+          # :building_construction: Automated release <img align="right" width="32" height="32" alt="Ico" src="https://github.com/user-attachments/assets/c8c08b6a-927c-4278-917a-c23b10e6491d" />
+          
+          - Analysis completed
+          
+          ## :recycle: Full Changelog
+          
+          - Versions: [`${{ env.OLD_VERSION }}...${{ env.NEW_VERSION }}`](https://github.com/${{ github.repository }}/compare/${{ env.OLD_VERSION }}...${{ env.NEW_VERSION }})
+          
+          ## :warning: Known issue
+          
+          - Security Warning When Opening File [#2](https://github.com/${{ github.repository }}/issues/2)
+          
+          ## :beginner: Security vendors' analysis
+          
+          - [x] [VirusTotal](${{ env.VT_GUI_URL || '#' }}?nocache=1)
+          
+          ## :inbox_tray: Downloads
+          
+          [![GitHub release (by tag)](https://img.shields.io/github/downloads/${{ github.repository }}/${{ env.NEW_VERSION }}/total?style=for-the-badge)](https://github.com/${{ github.repository }}/releases/download/${{ env.NEW_VERSION }}/${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}.zip)
+
 
 ######################################################################### add reactions
       
