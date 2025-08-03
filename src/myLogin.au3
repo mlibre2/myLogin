@@ -5,7 +5,7 @@
 #pragma compile(FileVersion, 2.1)					; auto-incremental by workflows (compile)
 #pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
 
-#NoTrayIcon							; Will not be shown when the script starts
+#NoTrayIcon							; Indicates that the AutoIt tray icon will not be shown when the script starts.
 
 #include <GUIConstantsEx.au3>		; GUI Create, events
 #include <WindowsConstants.au3>		; Gui extended style
@@ -18,6 +18,8 @@
 #include <Crypt.au3>				; Encrypting and hashing data
 #include <StringConstants.au3>		; Using String
 #include <WinAPIGdi.au3>			; UDF Library
+#include <Inet.au3>					; Download updates
+#include <FileConstants.au3>		; FileOpen, FileWriteLine and FileClose
 
 ; configuration
 Const $g_sVersion = "2.1"							; auto-incremental by workflows (compile)
@@ -41,23 +43,25 @@ $g_oLangLookup = ObjCreate("Scripting.Dictionary")	; Optimize searches table has
 Const $g_iPassMinLength = 2							; Define minimum password length
 Const $g_iPassMaxLength = 30						; Define maximum password length
 Const $g_sExplorer = "explorer.exe"
-$g_bProcessExists = False							; Check if a process exists
+$g_bProcessExists = ProcessExists($g_sExplorer) > 0	; Check if a process exists
 Global $g_aButtonsParam[4]							; save/get button parameters
+Const $g_sName = "myLogin"							; Script name
+Const $g_sComp = ""							; for testing only
 
 ; Load language files
 _LoadLanguage()
 
 ;~ Check single instance prevent double execution
-If Not _Singleton("ScreenLockWindow", 1) Then
+If Not _Singleton($g_sName, 1) Then
    MsgBox($MB_ICONWARNING, @ScriptName, _getLang("PROGRAM_ALREADY_OPEN"), 3)
    Exit
 EndIf
 
-;~ Check Explorer
-_chkExplorer()
-
 ; ...command line
 _ProcessParameters()
+
+;~ Check Explorer
+_chkExplorer()
 
 ; Create main window (fullscreen)
 $hGUI = GUICreate("", @DesktopWidth, @DesktopHeight, 0, 0, $WS_POPUP, BitOR($WS_EX_TOPMOST, $WS_EX_TOOLWINDOW))
@@ -75,7 +79,7 @@ GUICtrlCreateLabel(_getLang("START_TIME") & " " & _Time(), 10, 5)
 GUICtrlSetFont(-1, 6, $FW_NORMAL, $GUI_FONTNORMAL, "Consolas")
 GUICtrlSetColor(-1, $g_iStyle > 0 ? $g_iColorTxt : 0x000000)
 
-GUICtrlCreateLabel("MyLogin v" & $g_sVersion, 285, 5)
+GUICtrlCreateLabel($g_sName & " v" & $g_sVersion, 285, 5)
 GUICtrlSetFont(-1, 6, $FW_NORMAL, $GUI_FONTNORMAL, "Consolas")
 GUICtrlSetColor(-1, $g_iStyle > 0 ? $g_iColorTxt : 0x000000)
 
@@ -196,30 +200,39 @@ While 1
 		 GUICtrlSetState($idInput, $GUI_FOCUS)
 
       Case $idPowerOff
-		 _DisableButtons(True)
-         Run("cmd /c shutdown /s /f /t 0", "", @SW_HIDE)
+		 _ShutdownSystem("/s")
 
       Case $idReboot
-		 _DisableButtons(True)
-         Run("cmd /c shutdown /r /f /t 0", "", @SW_HIDE)
+		 _ShutdownSystem("/r")
 
 	  Case $idLockSession
 		 _DisableButtons(True)
-		 Run("cmd /c rundll32 user32.dll,LockWorkStation", "", @SW_HIDE)
-		 Sleep(300)
+		 RunWait("cmd /c rundll32 user32.dll,LockWorkStation", "", @SW_HIDE)
 		 _DisableButtons(False)
 
    EndSwitch
 
+   ; antiBypa$$ for standard users
+   If $g_bDisableTaskMgr > True And ProcessExists("taskmgr.exe") Then
+	  ProcessClose("taskmgr.exe")
+	  MsgBox(BitOR($MB_ICONWARNING, $MB_TOPMOST), _getLang("TASK_MANAGER"), _getLang("TASKMGR_MSG"), 3)
+   EndIf
+
+   Sleep(50)	; save CPU :?
 WEnd
 
-; Cleanup and exit
+; ... exit
+_chkUpdates()
+
 Exit
 
 ;~ Functions
-Func _chkExplorer()
-   $g_bProcessExists = ProcessExists($g_sExplorer) > 0
+Func _ShutdownSystem($sParam)
+    _DisableButtons(True)
+    Run("cmd /c shutdown " & $sParam & " /f /t 0", "", @SW_HIDE)
+EndFunc
 
+Func _chkExplorer()
    If $g_bDisableExplorer And $g_bProcessExists Then
 	  Run("cmd /c taskkill /f /im " & $g_sExplorer, "", @SW_HIDE)
 
@@ -320,8 +333,11 @@ Func _ProcessParameters()
             EndIf
 
          Case "/DisableTaskMgr", "/dt"
-            $g_bDisableTaskMgr = True
-			RegWrite("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System", "DisableTaskMgr", "REG_DWORD", "1")
+			If Not RegWrite("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System", "DisableTaskMgr", "REG_DWORD", "1") Then
+			   $g_bDisableTaskMgr = 2	; chk process... in main loop
+			Else
+			   $g_bDisableTaskMgr = True
+			EndIf
 
          Case "/DisableExplorer", "/de"
             $g_bDisableExplorer = True
@@ -347,6 +363,9 @@ Func _ProcessParameters()
                      $g_iBkColorPassGUI = 0x00696D
                EndSwitch
             EndIf
+
+		 Case "/AutoUpdater", "/au"
+			AdlibRegister("_chkUpdatesAsync", 500)
 
       EndSwitch
    Next
@@ -563,4 +582,218 @@ Func _DisableButtons($bValue)
 	  ; get button parameters
 	  If Not $g_aButtonsParam[$i] Then GUICtrlSetState($aButtons[$i], $bValue ? $GUI_DISABLE : $GUI_ENABLE)
    Next
+EndFunc
+
+; upd
+Func _chkUpdatesAsync()
+   AdlibUnRegister("_chkUpdatesAsync")
+   _chkUpdates()
+EndFunc
+
+Func _chkUpdates()
+   Static $iReview
+
+   $iReview += 1
+
+   If $iReview > 1 Then
+	  $sExeNew = @ScriptName & ".new"
+
+	  ; Check if the .new file exists
+	  If FileExists($sExeNew) Then Run("cmd /c ping -n 1 localhost >nul & move /y " & $sExeNew & " " & @ScriptName, "", @SW_HIDE)
+
+	  Return
+   EndIf
+
+   $sReleasesURL = "https://api.github.com/repos/mlibre2/" & $g_sName & $g_sComp & "/releases/latest"
+   $sUpdateTempDir = @TempDir & "\" & $g_sName & "Update\"
+
+   ; Initialize logging
+   _Log(_getLang("START_CHECK_NEW_UPDATE"))
+   _Log(_getLang("CURRENT_VERSION", $g_sVersion))
+
+   ; Check internet connection
+   If Not _IsInternetConnected() Then
+      _Log("Error: " & _getLang("ERROR_NO_INTERNET"))
+      Return
+   EndIf
+
+   ; Get information about the latest release
+   $sResponse = BinaryToString(InetRead($sReleasesURL))
+   If @error Or $sResponse = "" Then
+      _Log("Error: " & _getLang("ERROR_NO_GET_UPDATE"))
+      Return
+   EndIf
+
+   ; Parse version
+   $aVersionMatch = StringRegExp($sResponse, '"tag_name":"v?([\d.]+)"', 1)
+   If @error Or Not IsArray($aVersionMatch) Then
+      _Log("Error: " & _getLang("ERROR_INVALID_VERSION"))
+      Return
+   EndIf
+
+   $sLatestVersion = $aVersionMatch[0]
+   _Log(_getLang("LATEST_VERSION", $sLatestVersion))
+
+   ; Compare versions
+   If _VersionCompare($g_sVersion, $sLatestVersion) >= 0 Then
+      _Log(_getLang("ALREADY_LATEST_VERSION"))
+      Return
+   EndIf
+
+   ; Get download URL
+   $aUrlMatch = StringRegExp($sResponse, '"browser_download_url":"(https:[^"]+?' & $g_sName & '[^"]+?\.zip)"', 1)
+   If @error Or Not IsArray($aUrlMatch) Then
+      _Log("Error: " & _getLang("ERROR_DOWNLOAD_URL"))
+      Return
+   EndIf
+
+   $sDownloadURL = StringReplace($aUrlMatch[0], "\/", "/")
+   _Log(_getLang("DOWNLOAD_URL", $sDownloadURL))
+
+   ; Prepare temporary directory
+   If Not DirCreate($sUpdateTempDir) Then
+      _Log("Error: " & _getLang("ERROR_CREATE_TMP_DIR"))
+      Return
+   EndIf
+
+   $sZipFile = $sUpdateTempDir & "update.zip"
+
+   ; Download in background with progress
+   If Not _DownloadWithProgress($sDownloadURL, $sZipFile, _getLang("DOWNLOADING_UPDATE", $sLatestVersion)) Then
+      _Log("Error: " & _getLang("ERROR_DOWNLOAD"))
+      DirRemove($sUpdateTempDir, $DIR_REMOVE)
+      Return
+   EndIf
+
+   ; Extract and move files
+   If Not _ExtractAndMoveFiles($sZipFile, $sUpdateTempDir) Then
+      _Log(_getLang("ERROR_EXTRACT_FILES"))
+      DirRemove($sUpdateTempDir, $DIR_REMOVE)
+      Return
+   EndIf
+
+   _Log(_getLang("UPDATE_PREPARED"))
+
+   DirRemove($sUpdateTempDir, $DIR_REMOVE)
+
+   MsgBox(BitOR($MB_ICONINFORMATION, $MB_TOPMOST), _getLang("MSG1_DOWNLOADED", $g_sName, $sLatestVersion), _getLang("MSG2_DOWNLOADED"), 3)
+EndFunc
+
+Func _DownloadWithProgress($sURL, $sDest, $sTitle)
+   $hDownload = InetGet($sURL, $sDest, $INET_FORCEBYPASS, $INET_DOWNLOADBACKGROUND)
+   If @error Then Return False
+
+   $iLastPercent = 0
+   $iFileSize = 0
+   $iStartTime = TimerInit()
+
+   ; --- Set position in lower right corner ---
+   $iProgressWidth = 400  ; Width of the progress window
+   $iProgressHeight = 100 ; Progress window height
+   $iPosX = @DesktopWidth - $iProgressWidth + 60  ; right margin px
+   $iPosY = @DesktopHeight - $iProgressHeight - 60 ; margin-bottom px
+
+   ProgressOn($sTitle, _getLang("GETTING_FILES"), "0%", $iPosX, $iPosY, $DLG_MOVEABLE)
+
+   Do
+      Sleep(50)
+      $iBytes = InetGetInfo($hDownload, $INET_DOWNLOADREAD)
+      $iFileSize = InetGetInfo($hDownload, $INET_DOWNLOADSIZE)
+
+      If $iFileSize > 0 Then
+         $iPercent = ($iBytes / $iFileSize) * 100
+         $iPercent = $iPercent > 100 ? 100 : $iPercent
+
+         If $iPercent <> $iLastPercent Then
+            $iLastPercent = $iPercent
+			$iElapsed = TimerDiff($iStartTime) / 1000
+			$sSpeed = $iElapsed > 0 ? _BytesToSize($iBytes / $iElapsed) & "/s" : "N/A"
+
+			ProgressSet($iPercent, Round($iPercent) & "% - " & _BytesToSize($iBytes) & "/" & _BytesToSize($iFileSize) & @CRLF & _getLang("SPEED") & ": " & $sSpeed)
+         EndIf
+      EndIf
+   Until InetGetInfo($hDownload, $INET_DOWNLOADCOMPLETE)
+
+   InetClose($hDownload)
+
+   ProgressSet(100, "100% - " & _getLang("DONE") & " " & _BytesToSize($iFileSize), _getLang("COMPLETE"))
+   Sleep(2000)
+   ProgressOff()
+
+   Return FileExists($sDest) And (FileGetSize($sDest) > 0)
+EndFunc
+
+Func _ExtractAndMoveFiles($sZipFile, $sTempDir)
+   If Not FileExists($sZipFile) Then Return False
+
+   ; Ensure correct route
+   If StringRight($sTempDir, 1) <> "\" Then $sTempDir &= "\"
+
+   ; Extract files
+   $oShell = ObjCreate("Shell.Application")
+   If Not IsObj($oShell) Then Return False
+
+   $oZip = $oShell.NameSpace($sZipFile)
+   $oDest = $oShell.NameSpace($sTempDir)
+
+   If Not IsObj($oZip) Or Not IsObj($oDest) Then Return False
+
+   $oDest.CopyHere($oZip.Items(), 0x14) ; 16 (no diálogo) + 4 (yes to all)
+   Sleep(1000) ; Wait for operation
+
+   ; Verify extracted files
+   $bExeNewExists = FileExists($sTempDir & @ScriptName)
+   $bLangExists = FileExists($sTempDir & "lang\")
+
+   If Not $bExeNewExists And Not $bLangExists Then
+      _Log("Error: " & _getLang("ERROR_NO_VALID_FILES"))
+      Return False
+   EndIf
+
+   ; Move .new files
+   If $bExeNewExists And FileCopy($sTempDir & @ScriptName, @ScriptDir & "\" & @ScriptName & ".new", $FC_OVERWRITE) Then
+	  _Log(_getLang("COPY_NEW_FILE", @ScriptName))
+   Else
+	  _Log("Error: " & _getLang("ERROR_COPY_NEW_FILE", @ScriptName))
+	  Return False
+   EndIf
+
+   ; Move lang directory if it exists
+   If $bLangExists And DirCopy($sTempDir & "lang\", @ScriptDir & "\lang\", $FC_OVERWRITE) Then
+	  _Log(_getLang("COPY_NEW_LANG"))
+   Else
+	  _Log("Error: " & _getLang("ERROR_COPY_NEW_LANG"))
+	  Return False
+   EndIf
+
+   Return True
+EndFunc
+
+Func _IsInternetConnected()
+   $iPing = Ping("github.com", 1500)
+   Return $iPing > 0
+EndFunc
+
+Func _BytesToSize($iBytes)
+   $iMB = $iBytes / (1024 * 1024)
+   Return StringFormat("%.2f MB", $iMB)
+EndFunc
+
+Func _Log($sMessage)
+   Static $sLogPath = @ScriptDir & "\" & $g_sName & "Debug.log"
+   Static $sLastDateTime = "", $iLastSec = -1
+   $iCurrentSec = @SEC
+
+   If $iCurrentSec <> $iLastSec Then
+	  $sLastDateTime = "[" & @MDAY & "/" & @MON & "/" & @YEAR & " - " & @HOUR & ":" & @MIN & ":" & $iCurrentSec & "]"
+	  $iLastSec = $iCurrentSec
+   EndIf
+
+   $hFile = FileOpen($sLogPath, $FO_APPEND + $FO_UTF8_NOBOM)
+   FileWriteLine($hFile, $sLastDateTime & " " & $sMessage)
+
+   ; Check if the message contains the word "error" (case insensitive)
+   If StringInStr($sMessage, "error", $STR_NOCASESENSE) Then FileWriteLine($hFile, $sLastDateTime & " " & _getLang("REPORT", "https://github.com/mlibre2/" & $g_sName & $g_sComp & "/issues"))
+
+   FileClose($hFile)
 EndFunc
