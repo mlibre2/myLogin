@@ -73,6 +73,10 @@ Usa tu Hash para iniciar el programa:
 
   ``MyLogin.exe /PassHash 0x9461E4B1394C6134483668F09CCF7B93 /Style 1``
 
+- ``/AutoUpdater`` or ``/au``
+
+  Con este parámetro podrás habilitar las actualizaciones automáticas cada vez que se inicia el programa, una vez descargado el paquete, se instala en el próximo inicio. **(disponible desde [v2.2](https://github.com/mlibre2/myLogin/releases/tag/2.2))**
+
   Ejemplo con todas las opciones:
 
   ``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dt /de /st 1``
