@@ -9,7 +9,7 @@ on:
 ######################################################################### repo permissions (no token)
 
 #permissions:
-#  contents: write  # push repo
+#  contents: write
 
 ######################################################################### jobs
 
@@ -303,31 +303,49 @@ jobs:
 ######################################################################### update release notes
 
     - name: Update release notes
-      uses: softprops/action-gh-release@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
+      uses: actions/github-script@v7
       with:
-        tag_name: ${{ env.NEW_VERSION }}
-        body: |
-          # :building_construction: Automated release <img align="right" width="32" height="32" alt="Ico" src="https://github.com/user-attachments/assets/c8c08b6a-927c-4278-917a-c23b10e6491d" />
+        github-token: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
+        script: |
+          // Get the existing release by tag
+          const { data: release } = await github.rest.repos.getReleaseByTag({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            tag: process.env.NEW_VERSION
+          });
           
-          - Analysis completed
+          const vtMessage = `- [${process.env.ENABLE_VIRUSTOTAL === 'true' ? 'x' : ' '}] [VirusTotal](${process.env.ENABLE_VIRUSTOTAL === 'true' ? process.env.VT_GUI_URL + '?nocache=1' : '#'})`;
           
-          ## :recycle: Full Changelog
+          // Build the new body
+          const newBody = `
+            # :building_construction: Automated release <img align="right" width="32" height="32" alt="Ico" src="https://github.com/user-attachments/assets/c8c08b6a-927c-4278-917a-c23b10e6491d" />
+            
+            - Analysis completed
+            
+            ## :recycle: Full Changelog
+            
+            - Versions: [\`${process.env.OLD_VERSION}...${process.env.NEW_VERSION}\`](https://github.com/${context.repo.owner}/${context.repo.repo}/compare/${process.env.OLD_VERSION}...${process.env.NEW_VERSION})
+            
+            ## :warning: Known issue
+            
+            - Security Warning When Opening File [#2](https://github.com/${context.repo.owner}/${context.repo.repo}/issues/2)
+            
+            ## :beginner: Security vendors' analysis
+
+            ${vtMessage}
+            
+            ## :inbox_tray: Downloads
+            
+            [![GitHub release (by tag)](https://img.shields.io/github/downloads/${context.repo.owner}/${context.repo.repo}/${process.env.NEW_VERSION}/total?style=for-the-badge)](https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}.zip)
+          `;
           
-          - Versions: [`${{ env.OLD_VERSION }}...${{ env.NEW_VERSION }}`](https://github.com/${{ github.repository }}/compare/${{ env.OLD_VERSION }}...${{ env.NEW_VERSION }})
-          
-          ## :warning: Known issue
-          
-          - Security Warning When Opening File [#2](https://github.com/${{ github.repository }}/issues/2)
-          
-          ## :beginner: Security vendors' analysis
-          
-          - [x] [VirusTotal](${{ env.VT_GUI_URL || '#' }}?nocache=1)
-          
-          ## :inbox_tray: Downloads
-          
-          [![GitHub release (by tag)](https://img.shields.io/github/downloads/${{ github.repository }}/${{ env.NEW_VERSION }}/total?style=for-the-badge)](https://github.com/${{ github.repository }}/releases/download/${{ env.NEW_VERSION }}/${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}.zip)
+          // Update release
+          await github.rest.repos.updateRelease({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            release_id: release.id,
+            body: newBody
+          });
 
 
 ######################################################################### add reactions
