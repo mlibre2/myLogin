@@ -1,8 +1,8 @@
 #pragma compile(FileDescription, Login secondary lock screen Windows)
 #pragma compile(ProductName, myLogin)
-#pragma compile(ProductVersion, 2.1)				; auto-incremental by workflows (compile)
+#pragma compile(ProductVersion, 2.2)				; auto-incremental by workflows (compile)
 #pragma compile(LegalCopyright, © by mlibre2)
-#pragma compile(FileVersion, 2.1)					; auto-incremental by workflows (compile)
+#pragma compile(FileVersion, 2.2)					; auto-incremental by workflows (compile)
 #pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
 
 #NoTrayIcon							; Indicates that the AutoIt tray icon will not be shown when the script starts.
@@ -22,7 +22,7 @@
 #include <FileConstants.au3>		; FileOpen, FileWriteLine and FileClose
 
 ; configuration
-Const $g_sVersion = "2.1"							; auto-incremental by workflows (compile)
+Const $g_sVersion = "2.2"							; auto-incremental by workflows (compile)
 $g_sPassHash = ""
 Const $g_iTransparencyGUI = 150						; 0-255 (transparent-opaque) fullscreen
 Const $g_iTransparencyPassGUI = 180					; 0-255 (transparent-opaque) for window
