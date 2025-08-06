@@ -5,7 +5,7 @@
 #pragma compile(FileVersion, 2.2)					; auto-incremental by workflows (compile)
 #pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
 
-#NoTrayIcon							; Indicates that the AutoIt tray icon will not be shown when the script starts.
+#NoTrayIcon							; Will not be shown when the script starts
 
 #include <GUIConstantsEx.au3>		; GUI Create, events
 #include <WindowsConstants.au3>		; Gui extended style
@@ -166,9 +166,6 @@ While 1
             ; Restore Windows Explorer if disabled
             If $g_bDisableExplorer Then Run($g_sExplorer, @WindowsDir, @SW_HIDE)
 
-            ; Restore Task Manager if disabled
-            If $g_bDisableTaskMgr Then RegWrite("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System", "DisableTaskMgr", "REG_DWORD", "0")
-
             SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
 
             Sleep(400)
@@ -200,21 +197,22 @@ While 1
 		 GUICtrlSetState($idInput, $GUI_FOCUS)
 
       Case $idPowerOff
-		 _ShutdownSystem("/s")
+		 _ShutdownSys("/s")
 
       Case $idReboot
-		 _ShutdownSystem("/r")
+		 _ShutdownSys("/r")
 
 	  Case $idLockSession
 		 _DisableButtons(True)
-		 RunWait("cmd /c rundll32 user32.dll,LockWorkStation", "", @SW_HIDE)
+		 DllCall("user32.dll", "int", "LockWorkStation")
+		 Sleep(300)
 		 _DisableButtons(False)
 
    EndSwitch
 
    ; antiBypa$$ for standard users
-   If $g_bDisableTaskMgr > True And ProcessExists("taskmgr.exe") Then
-	  ProcessClose("taskmgr.exe")
+   If $g_bDisableTaskMgr And WinActive(_getLang("TASK_MANAGER"), "") Then
+	  DllCall("user32.dll", "bool", "PostMessage", "hwnd", WinGetHandle(_getLang("TASK_MANAGER"), ""), "uint", $WM_CLOSE, "wparam", 0, "lparam", 0)
 	  MsgBox(BitOR($MB_ICONWARNING, $MB_TOPMOST), _getLang("TASK_MANAGER"), _getLang("TASKMGR_MSG"), 3)
    EndIf
 
@@ -227,7 +225,7 @@ _chkUpdates()
 Exit
 
 ;~ Functions
-Func _ShutdownSystem($sParam)
+Func _ShutdownSys($sParam)
     _DisableButtons(True)
     Run("cmd /c shutdown " & $sParam & " /f /t 0", "", @SW_HIDE)
 EndFunc
@@ -333,11 +331,7 @@ Func _ProcessParameters()
             EndIf
 
          Case "/DisableTaskMgr", "/dt"
-			If Not RegWrite("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System", "DisableTaskMgr", "REG_DWORD", "1") Then
-			   $g_bDisableTaskMgr = 2	; chk process... in main loop
-			Else
-			   $g_bDisableTaskMgr = True
-			EndIf
+			$g_bDisableTaskMgr = True
 
          Case "/DisableExplorer", "/de"
             $g_bDisableExplorer = True
@@ -595,19 +589,17 @@ Func _chkUpdates()
 
    $iReview += 1
 
+   ; Handle file replacement if this is the second call
    If $iReview > 1 Then
 	  $sExeNew = @ScriptName & ".new"
+      If FileExists($sExeNew) Then Run("cmd /c ping -n 2 localhost >nul & move /y " & $sExeNew & " " & @ScriptName, "", @SW_HIDE)
 
-	  ; Check if the .new file exists
-	  If FileExists($sExeNew) Then Run("cmd /c ping -n 1 localhost >nul & move /y " & $sExeNew & " " & @ScriptName, "", @SW_HIDE)
-
-	  Return
+      Return
    EndIf
 
+   ; Initialize update check
    $sReleasesURL = "https://api.github.com/repos/mlibre2/" & $g_sName & $g_sComp & "/releases/latest"
-   $sUpdateTempDir = @TempDir & "\" & $g_sName & "Update\"
 
-   ; Initialize logging
    _Log(_getLang("START_CHECK_NEW_UPDATE"))
    _Log(_getLang("CURRENT_VERSION", $g_sVersion))
 
@@ -617,7 +609,7 @@ Func _chkUpdates()
       Return
    EndIf
 
-   ; Get information about the latest release
+   ; Get release information
    $sResponse = BinaryToString(InetRead($sReleasesURL))
    If @error Or $sResponse = "" Then
       _Log("Error: " & _getLang("ERROR_NO_GET_UPDATE"))
@@ -650,58 +642,43 @@ Func _chkUpdates()
    $sDownloadURL = StringReplace($aUrlMatch[0], "\/", "/")
    _Log(_getLang("DOWNLOAD_URL", $sDownloadURL))
 
-   ; Prepare temporary directory
+   ; Prepare download
+   $sUpdateTempDir = @ScriptDir & "\" & $g_sName & "Update\"
+
    If Not DirCreate($sUpdateTempDir) Then
       _Log("Error: " & _getLang("ERROR_CREATE_TMP_DIR"))
       Return
    EndIf
 
-   $sZipFile = $sUpdateTempDir & "update.zip"
+   $sZipFile = $sUpdateTempDir & $g_sName & $sLatestVersion & ".zip"
 
-   ; Download in background with progress
-   If Not _DownloadWithProgress($sDownloadURL, $sZipFile, _getLang("DOWNLOADING_UPDATE", $sLatestVersion)) Then
+   ; Download with progress
+   $hDownload = InetGet($sDownloadURL, $sZipFile, $INET_FORCEBYPASS, $INET_DOWNLOADBACKGROUND)
+   If @error Then
       _Log("Error: " & _getLang("ERROR_DOWNLOAD"))
-      DirRemove($sUpdateTempDir, $DIR_REMOVE)
+	  DirRemove($sUpdateTempDir, $DIR_REMOVE)
       Return
    EndIf
 
-   ; Extract and move files
-   If Not _ExtractAndMoveFiles($sZipFile, $sUpdateTempDir) Then
-      _Log(_getLang("ERROR_EXTRACT_FILES"))
-      DirRemove($sUpdateTempDir, $DIR_REMOVE)
-      Return
-   EndIf
-
-   _Log(_getLang("UPDATE_PREPARED"))
-
-   DirRemove($sUpdateTempDir, $DIR_REMOVE)
-
-   MsgBox(BitOR($MB_ICONINFORMATION, $MB_TOPMOST), _getLang("MSG1_DOWNLOADED", $g_sName, $sLatestVersion), _getLang("MSG2_DOWNLOADED"), 3)
-EndFunc
-
-Func _DownloadWithProgress($sURL, $sDest, $sTitle)
-   $hDownload = InetGet($sURL, $sDest, $INET_FORCEBYPASS, $INET_DOWNLOADBACKGROUND)
-   If @error Then Return False
-
-   $iLastPercent = 0
-   $iFileSize = 0
-   $iStartTime = TimerInit()
-
-   ; --- Set position in lower right corner ---
    $iProgressWidth = 400  ; Width of the progress window
    $iProgressHeight = 100 ; Progress window height
    $iPosX = @DesktopWidth - $iProgressWidth + 60  ; right margin px
    $iPosY = @DesktopHeight - $iProgressHeight - 60 ; margin-bottom px
 
-   ProgressOn($sTitle, _getLang("GETTING_FILES"), "0%", $iPosX, $iPosY, $DLG_MOVEABLE)
+   ProgressOn(_getLang("DOWNLOADING_UPDATE", $sLatestVersion), _getLang("GETTING_FILES"), "0%", $iPosX, $iPosY, $DLG_MOVEABLE)
 
+   $iLastPercent = 0
+   $iFileSize = 0
+   $iStartTime = TimerInit()
+
+   ; Download progress loop
    Do
       Sleep(50)
-      $iBytes = InetGetInfo($hDownload, $INET_DOWNLOADREAD)
+	  $iBytes = InetGetInfo($hDownload, $INET_DOWNLOADREAD)
       $iFileSize = InetGetInfo($hDownload, $INET_DOWNLOADSIZE)
 
       If $iFileSize > 0 Then
-         $iPercent = ($iBytes / $iFileSize) * 100
+		 $iPercent = ($iBytes / $iFileSize) * 100
          $iPercent = $iPercent > 100 ? 100 : $iPercent
 
          If $iPercent <> $iLastPercent Then
@@ -709,74 +686,83 @@ Func _DownloadWithProgress($sURL, $sDest, $sTitle)
 			$iElapsed = TimerDiff($iStartTime) / 1000
 			$sSpeed = $iElapsed > 0 ? _BytesToSize($iBytes / $iElapsed) & "/s" : "N/A"
 
-			ProgressSet($iPercent, Round($iPercent) & "% - " & _BytesToSize($iBytes) & "/" & _BytesToSize($iFileSize) & @CRLF & _getLang("SPEED") & ": " & $sSpeed)
+            ProgressSet($iPercent, Round($iPercent) & "% - " & _BytesToSize($iBytes) & "/" & _BytesToSize($iFileSize) & @CRLF & _getLang("SPEED") & ": " & $sSpeed)
          EndIf
       EndIf
    Until InetGetInfo($hDownload, $INET_DOWNLOADCOMPLETE)
 
    InetClose($hDownload)
-
    ProgressSet(100, "100% - " & _getLang("DONE") & " " & _BytesToSize($iFileSize), _getLang("COMPLETE"))
    Sleep(2000)
    ProgressOff()
 
-   Return FileExists($sDest) And (FileGetSize($sDest) > 0)
-EndFunc
-
-Func _ExtractAndMoveFiles($sZipFile, $sTempDir)
-   If Not FileExists($sZipFile) Then Return False
-
-   ; Ensure correct route
-   If StringRight($sTempDir, 1) <> "\" Then $sTempDir &= "\"
+   ; Verify download
+   If Not FileExists($sZipFile) Or FileGetSize($sZipFile) = 0 Then
+      _Log("Error: " & _getLang("ERROR_DOWNLOAD"))
+      DirRemove($sUpdateTempDir, $DIR_REMOVE)
+      Return
+   EndIf
 
    ; Extract files
    $oShell = ObjCreate("Shell.Application")
-   If Not IsObj($oShell) Then Return False
+   If Not IsObj($oShell) Then
+      _Log("Error: " & _getLang("ERROR_EXTRACT_FILES"))
+      DirRemove($sUpdateTempDir, $DIR_REMOVE)
+      Return
+   EndIf
 
    $oZip = $oShell.NameSpace($sZipFile)
-   $oDest = $oShell.NameSpace($sTempDir)
+   $oDest = $oShell.NameSpace($sUpdateTempDir)
 
-   If Not IsObj($oZip) Or Not IsObj($oDest) Then Return False
+   If Not IsObj($oZip) Or Not IsObj($oDest) Then
+      _Log("Error: " & _getLang("ERROR_EXTRACT_FILES"))
+      DirRemove($sUpdateTempDir, $DIR_REMOVE)
+      Return
+   EndIf
 
-   $oDest.CopyHere($oZip.Items(), 0x14) ; 16 (no diálogo) + 4 (yes to all)
+   $oDest.CopyHere($oZip.Items(), 0x14) ; 16 (no dialog) + 4 (yes to all)
    Sleep(1000) ; Wait for operation
 
    ; Verify extracted files
-   $bExeNewExists = FileExists($sTempDir & @ScriptName)
-   $bLangExists = FileExists($sTempDir & "lang\")
+   $bExeNewExists = FileExists($sUpdateTempDir & @ScriptName)
+   $bLangExists = FileExists($sUpdateTempDir & "lang\")
 
-   If Not $bExeNewExists And Not $bLangExists Then
+   If Not $bExeNewExists Or Not $bLangExists Then
       _Log("Error: " & _getLang("ERROR_NO_VALID_FILES"))
-      Return False
+      DirRemove($sUpdateTempDir, $DIR_REMOVE)
+      Return
    EndIf
 
-   ; Move .new files
-   If $bExeNewExists And FileCopy($sTempDir & @ScriptName, @ScriptDir & "\" & @ScriptName & ".new", $FC_OVERWRITE) Then
-	  _Log(_getLang("COPY_NEW_FILE", @ScriptName))
-   Else
-	  _Log("Error: " & _getLang("ERROR_COPY_NEW_FILE", @ScriptName))
-	  Return False
+   ; Move new executable
+   If Not FileCopy($sUpdateTempDir & @ScriptName, @ScriptDir & "\" & @ScriptName & ".new", $FC_OVERWRITE) Then
+      _Log("Error: " & _getLang("ERROR_COPY_NEW_FILE", @ScriptName))
+      DirRemove($sUpdateTempDir, $DIR_REMOVE)
+      Return
    EndIf
+   _Log(_getLang("COPY_NEW_FILE", @ScriptName))
 
-   ; Move lang directory if it exists
-   If $bLangExists And DirCopy($sTempDir & "lang\", @ScriptDir & "\lang\", $FC_OVERWRITE) Then
-	  _Log(_getLang("COPY_NEW_LANG"))
-   Else
+   ; Move language files if they exist
+   If Not DirCopy($sUpdateTempDir & "lang\", @ScriptDir & "\lang\", $FC_OVERWRITE) Then
 	  _Log("Error: " & _getLang("ERROR_COPY_NEW_LANG"))
-	  Return False
+	  Return
    EndIf
+   _Log(_getLang("COPY_NEW_LANG"))
 
-   Return True
+   ; Cleanup
+   DirRemove($sUpdateTempDir, $DIR_REMOVE)
+   _Log(_getLang("UPDATE_PREPARED"))
+
+   MsgBox(BitOR($MB_ICONINFORMATION, $MB_TOPMOST), _getLang("MSG1_DOWNLOADED", $g_sName, $sLatestVersion), _getLang("MSG2_DOWNLOADED"), 3)
 EndFunc
 
+; Helper functions
 Func _IsInternetConnected()
-   $iPing = Ping("github.com", 1500)
-   Return $iPing > 0
+   $aReturn = DllCall("connect.dll", "long", "IsInternetConnected")
+   Return Not @error And $aReturn[0] = 0
 EndFunc
 
 Func _BytesToSize($iBytes)
-   $iMB = $iBytes / (1024 * 1024)
-   Return StringFormat("%.2f MB", $iMB)
+   Return StringFormat("%.2f MB", $iBytes / (1024 * 1024))
 EndFunc
 
 Func _Log($sMessage)
