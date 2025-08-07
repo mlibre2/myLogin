@@ -1,11 +1,11 @@
 ###### :world_map: Supported languages: [English](#) - [Spanish](https://github.com/mlibre2/myLogin/blob/main/README/es.md)
 
-# myLogin [![GitHub Release](https://img.shields.io/github/v/release/mlibre2/myLogin?style=for-the-badge)](https://github.com/mlibre2/myLogin/releases) [![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/mlibre2/myLogin/latest/total?style=for-the-badge)](#) [![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/mlibre2/myLogin/total?style=for-the-badge)](#) <img align="right" width="32" height="32" alt="en" src="https://github.com/user-attachments/assets/c8c08b6a-927c-4278-917a-c23b10e6491d" />
+# myLogin [![GitHub Release](https://img.shields.io/github/v/release/mlibre2/myLogin?style=for-the-badge) ![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/mlibre2/myLogin/latest/total?style=for-the-badge) ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/mlibre2/myLogin/total?style=for-the-badge) <img align="right" width="32" height="32" alt="en" src="https://github.com/user-attachments/assets/c8c08b6a-927c-4278-917a-c23b10e6491d" />](https://github.com/mlibre2/myLogin/releases)
 
 <img width="1280" height="768" alt="en" src="https://github.com/mlibre2/myLogin/blob/main/README/en.png" />
 
 Simple open-source program to lock the Windows Desktop screen with advanced options:
-- Disables specific keyboard keys and mouse clicks
+- Disables the desktop while the lock window is active
 - Prevents normal system use
 - Only unlocks with a password set by the administrator
 
