@@ -1,9 +1,14 @@
-#pragma compile(FileDescription, Login secondary lock screen Windows)
+#pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
+#pragma compile(ExecLevel, none)
+#pragma compile(UPX, false)
+#pragma compile(Compression, 0)
+#pragma compile(CompanyName, 'mlibre2')
+#pragma compile(FileDescription, Secure lock screen)
+#pragma compile(FileVersion, 2.3)					; auto-incremental by workflows (compile)
+#pragma compile(LegalCopyright, © by mlibre2 - Open source project on GitHub)
+#pragma compile(OriginalFilename, myLogin.exe)
 #pragma compile(ProductName, myLogin)
 #pragma compile(ProductVersion, 2.3)				; auto-incremental by workflows (compile)
-#pragma compile(LegalCopyright, © by mlibre2)
-#pragma compile(FileVersion, 2.3)					; auto-incremental by workflows (compile)
-#pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
 
 #NoTrayIcon							; Will not be shown when the script starts
 
@@ -22,31 +27,32 @@
 #include <FileConstants.au3>		; FileOpen, FileWriteLine and FileClose
 
 ; configuration
-Const $g_sVersion = "2.3"							; auto-incremental by workflows (compile)
+Const $g_sVersion = "2.3"								; auto-incremental by workflows (compile)
 $g_sPassHash = ""
-Const $g_iTransparencyGUI = 150						; 0-255 (transparent-opaque) fullscreen
-Const $g_iTransparencyPassGUI = 180					; 0-255 (transparent-opaque) for window
-$g_iColorTxt = 0xFFFFFF								; Text color
-Const $g_iBkColorGUI = 0x000000						; Background color (full)
-$g_iBkColorPassGUI = 0xFFFFFF						; Background color (window)
-Const $g_iWidthPassGUI = 350						; Window width
-Const $g_iHeightPassGUI = 195						; Window height
-$g_iFailAttempts = 0								; Failed attempts (login)
-$g_iStyle = 0										; Color style (0=white/1=dark/2=aqua)
-$g_bDisableExplorer = False							; Disable Windows Explorer
-$g_bDisableTaskMgr = False							; Disable Task Manager
-$g_bDisablePowerOff = False							; Disable system Shutdown button
-$g_bDisableReboot = False							; Disable system Reboot button
-$g_bDisableLockSession = False						; Disable system Lock button
-Const $g_sLanguage = _getOSLang()					; Get language (system)
-$g_oLangLookup = ObjCreate("Scripting.Dictionary")	; Optimize searches table hash O(1)
-Const $g_iPassMinLength = 2							; Define minimum password length
-Const $g_iPassMaxLength = 30						; Define maximum password length
-Const $g_sExplorer = "explorer.exe"
-$g_bProcessExists = ProcessExists($g_sExplorer) > 0	; Check if a process exists
-Global $g_aButtonsParam[4]							; save/get button parameters
-Const $g_sName = "myLogin"							; Script name
-Const $g_sComp = ""							; for testing only
+Const $g_iTransparencyGUI = 150							; 0-255 (transparent-opaque) fullscreen
+Const $g_iTransparencyPassGUI = 180						; 0-255 (transparent-opaque) for window
+$g_iColorTxt = 0xFFFFFF									; Text color
+Const $g_iBkColorGUI = 0x000000							; Background color (full)
+$g_iBkColorPassGUI = 0xFFFFFF							; Background color (window)
+Const $g_iWidthPassGUI = 350							; Window width
+Const $g_iHeightPassGUI = 195							; Window height
+$g_iFailAttempts = 0									; Failed attempts (login)
+$g_iStyle = 0											; Color style (0=white/1=dark/2=aqua)
+$g_bDisableExplorer = False								; Disable Windows Explorer
+$g_bDisableTaskMgr = False								; Disable Task Manager
+$g_bDisablePowerOff = False								; Disable system Shutdown button
+$g_bDisableReboot = False								; Disable system Reboot button
+$g_bDisableLockSession = False							; Disable system Lock button
+Const $g_sLanguage = _getOSLang()						; Get language (system)
+$g_oLangLookup = ObjCreate("Scripting.Dictionary")		; Optimize searches table hash O(1)
+Const $g_iPassMinLength = 2								; Define minimum password length
+Const $g_iPassMaxLength = 30							; Define maximum password length
+Global $g_aButtonsParam[4]								; save/get button parameters
+Const $g_sName = "myLogin"								; Script name
+Const $g_sComp = ""								; for testing only
+
+; Check/Get the version of the OS that supports advanced features
+Const $g_bOSVersion = StringRegExp(@OSVersion, "_(8|10|11|201|202)")
 
 ; Load language files
 _LoadLanguage()
@@ -59,9 +65,6 @@ EndIf
 
 ; ...command line
 _ProcessParameters()
-
-;~ Check Explorer
-_chkExplorer()
 
 ; Create main window (fullscreen)
 $hGUI = GUICreate("", @DesktopWidth, @DesktopHeight, 0, 0, $WS_POPUP, BitOR($WS_EX_TOPMOST, $WS_EX_TOOLWINDOW))
@@ -126,17 +129,6 @@ SoundPlay(@WindowsDir & "\media\tada.wav", $SOUND_NOWAIT)
 WinMove($hPassGUI, "", (@DesktopWidth - $g_iWidthPassGUI) / 2, (@DesktopHeight - $g_iHeightPassGUI) / 2)
 GUISetState(@SW_SHOW, $hPassGUI)
 
-; Block special keys
-Local $aHotKeys = [ _
-   "{F4}","{DEL}","{TAB}","{HOME}","{ESC}","{UP}","{DOWN}","{LEFT}","{RIGHT}","{SPACE}", _
-   "+{SPACE}", _	; Shift+Space
-   "^{SPACE}" _		; Ctrl+Space
-]
-
-For $i = 0 To UBound($aHotKeys) - 1
-   HotKeySet($aHotKeys[$i], "_BlockKeys")
-Next
-
 ; Detect key
 Local $aAccelKeys = [ _
    ["{ENTER}", $idUnlock] _ ; Enter/Intro
@@ -164,7 +156,7 @@ While 1
             EndIf
 
             ; Restore Windows Explorer if disabled
-            If $g_bDisableExplorer Then Run($g_sExplorer, @WindowsDir, @SW_HIDE)
+            If $g_bDisableExplorer Then _chkExplorer(False)
 
             SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
 
@@ -204,6 +196,9 @@ While 1
 
 	  Case $idLockSession
 		 _DisableButtons(True)
+
+		 If $g_bDisableExplorer And $g_bOSVersion Then _chkExplorer(False) ; We temporarily unlock... we avoid the black screen >=w8
+
 		 DllCall("user32.dll", "int", "LockWorkStation")
 		 Sleep(300)
 		 _DisableButtons(False)
@@ -216,6 +211,8 @@ While 1
 	  MsgBox(BitOR($MB_ICONWARNING, $MB_TOPMOST), _getLang("TASK_MANAGER"), _getLang("TASKMGR_MSG"), 3)
    EndIf
 
+   If $g_bDisableExplorer And $g_bOSVersion Then _chkExplorer(True) ; We reset the value when returning from the blocked session
+
    Sleep(50)	; save CPU :?
 WEnd
 
@@ -225,40 +222,34 @@ _chkUpdates()
 Exit
 
 ;~ Functions
-Func _ShutdownSys($sParam)
-    _DisableButtons(True)
-    Run("cmd /c shutdown " & $sParam & " /f /t 0", "", @SW_HIDE)
+Func _chkExplorer($bParam)
+   Static $bLastParam
+
+   If $bParam = $bLastParam Then Return
+   $bLastParam = $bParam
+
+   $aProcessList = ProcessList("explorer.exe")
+
+   If Not @error Then
+	  $sFunc = "Nt" & ($bParam ? "Suspend" : "Resume") & "Process"
+	  For $i = 1 To $aProcessList[0][0]
+		 $hProcess = _WinAPI_OpenProcess($PROCESS_SUSPEND_RESUME, False, $aProcessList[$i][1])
+
+		 If $hProcess Then
+			DllCall("ntdll.dll", "int", $sFunc, "ptr", $hProcess)
+			_WinAPI_CloseHandle($hProcess)
+		 EndIf
+	  Next
+   EndIf
 EndFunc
 
-Func _chkExplorer()
-   If $g_bDisableExplorer And $g_bProcessExists Then
-	  Run("cmd /c taskkill /f /im " & $g_sExplorer, "", @SW_HIDE)
-
-   ElseIf Not $g_bProcessExists Then
-	  ; Read Shell key value
-	  $sRegPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
-	  $sRegValue = "Shell"
-	  $sShellValue = RegRead($sRegPath, $sRegValue)
-
-	  If Not StringInStr($sShellValue, $g_sExplorer) > 0 Then
-		 RegWrite($sRegPath, $sRegValue, "REG_SZ", $g_sExplorer)
-
-		 MsgBox($MB_ICONWARNING, _getLang("EXPLORER_ERROR_TITLE"), _getLang("EXPLORER_ERROR_MSG") & @CRLF & @CRLF & $sRegValue & " " & _getLang("FROM_WINLOGON") & ": " & @CRLF & @CRLF & $sShellValue & @CRLF & @CRLF & _getLang("EXPLORER_FIX_MSG"))
-
-		 Run("cmd /c shutdown /r /f /t 0", "", @SW_HIDE)
-		 Exit
-	  Else
-		 $g_bDisableExplorer = True
-	  EndIf
-   EndIf
+Func _ShutdownSys($sParam = "")
+   _DisableButtons(True)
+   Run("cmd /c shutdown " & $sParam & " /f /t 0", "", @SW_HIDE)
 EndFunc
 
 Func _VerifyPassword()
    Return (_getHash(GUICtrlRead($idInput)) = $g_sPassHash)
-EndFunc
-
-Func _BlockKeys()
-   SoundPlay(@WindowsDir & "\media\Windows Hardware Fail.wav", $SOUND_NOWAIT)
 EndFunc
 
 Func _getHash($sInput)
@@ -291,7 +282,7 @@ Func _GenerateNewHash()
       ; If user cancels
       If @error Then
          MsgBox($MB_ICONINFORMATION, _getLang("INFO"), _getLang("HASH_GENERATION_CANCELED"))
-         If $g_bProcessExists Then Exit
+         Exit _chkExplorer(False)
 
       EndIf
 
@@ -316,7 +307,7 @@ Func _ProcessParameters()
       Switch $CmdLine[$i]
          Case "/GenerateHash", "/gh"
             _GenerateNewHash()
-            If $g_bProcessExists Then Exit
+            Exit _chkExplorer(False)
 
          Case "/PassHash", "/ph"
             If $i + 1 <= $CmdLine[0] Then
@@ -326,7 +317,7 @@ Func _ProcessParameters()
                ; Basic hash validation
                If StringLen($g_sPassHash) <> 34 Or StringLeft($g_sPassHash, 2) <> "0x" Then
                   MsgBox($MB_ICONERROR, _getLang("ERROR_TITLE"), _getLang("INVALID_HASH") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("GENERATE_HASH_HELP") & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
-                  If $g_bProcessExists Then Exit
+				  Exit _chkExplorer(False)
                EndIf
             EndIf
 
@@ -335,6 +326,7 @@ Func _ProcessParameters()
 
          Case "/DisableExplorer", "/de"
             $g_bDisableExplorer = True
+			_chkExplorer($g_bDisableExplorer)
 
          Case "/DisablePowerOff", "/dp"
             $g_bDisablePowerOff = True
@@ -369,7 +361,7 @@ Func _ProcessParameters()
 
       If $iButton = $IDYES Then _GenerateNewHash()
 
-      If $g_bProcessExists Then Exit
+      Exit _chkExplorer(False)
 
    EndIf
 
@@ -549,16 +541,20 @@ Func _getOSLang()
 EndFunc
 
 Func _EnableBlur($hGUI)
-   If Not StringRegExp(@OSVersion, "_(8|10|11|201|202)") Then	; Get OS Version
+   If Not $g_bOSVersion Then
 	  WinSetTrans($hGUI, "", $g_iTransparencyGUI)
 	  Return False
    EndIf
 
+   Const $ACCENT_ENABLE_BLURBEHIND = 3
+
    $tAccentPolicy = DllStructCreate("int AccentState; int AccentFlags; int GradientColor; int AnimationId")
-   DllStructSetData($tAccentPolicy, "AccentState", 3)  ; ACCENT_ENABLE_BLURBEHIND
+   DllStructSetData($tAccentPolicy, "AccentState", $ACCENT_ENABLE_BLURBEHIND)
+
+   Const $WCA_ACCENT_POLICY = 19
 
    $tWindowCompositionAttributeData = DllStructCreate("dword Attribute; ptr Data; ulong DataSize")
-   DllStructSetData($tWindowCompositionAttributeData, "Attribute", 19)  ; WCA_ACCENT_POLICY
+   DllStructSetData($tWindowCompositionAttributeData, "Attribute", $WCA_ACCENT_POLICY)
    DllStructSetData($tWindowCompositionAttributeData, "Data", DllStructGetPtr($tAccentPolicy))
    DllStructSetData($tWindowCompositionAttributeData, "DataSize", DllStructGetSize($tAccentPolicy))
 
