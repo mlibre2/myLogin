@@ -38,8 +38,7 @@ Const $g_iWidthPassGUI = 350							; Window width
 Const $g_iHeightPassGUI = 195							; Window height
 $g_iFailAttempts = 0									; Failed attempts (login)
 $g_iStyle = 0											; Color style (0=white/1=dark/2=aqua)
-$g_bDisableExplorer = False								; Disable Windows Explorer
-$g_bDisableTaskMgr = False								; Disable Task Manager
+$g_bDisableExplorer = True								; Disable Windows Explorer
 $g_bDisablePowerOff = False								; Disable system Shutdown button
 $g_bDisableReboot = False								; Disable system Reboot button
 $g_bDisableLockSession = False							; Disable system Lock button
@@ -50,9 +49,6 @@ Const $g_iPassMaxLength = 30							; Define maximum password length
 Global $g_aButtonsParam[4]								; save/get button parameters
 Const $g_sName = "myLogin"								; Script name
 Const $g_sComp = ""								; for testing only
-
-; Check/Get the version of the OS that supports advanced features
-Const $g_bOSVersion = StringRegExp(@OSVersion, "_(8|10|11|201|202)")
 
 ; Load language files
 _LoadLanguage()
@@ -197,7 +193,7 @@ While 1
 	  Case $idLockSession
 		 _DisableButtons(True)
 
-		 If $g_bDisableExplorer And $g_bOSVersion Then _chkExplorer(False) ; We temporarily unlock... we avoid the black screen >=w8
+		 If $g_bDisableExplorer Then _chkExplorer(False) ; We temporarily unlock... we avoid the black screen >=w8
 
 		 DllCall("user32.dll", "int", "LockWorkStation")
 		 Sleep(300)
@@ -205,13 +201,13 @@ While 1
 
    EndSwitch
 
-   ; antiBypa$$ for standard users
-   If $g_bDisableTaskMgr And WinActive(_getLang("TASK_MANAGER"), "") Then
-	  DllCall("user32.dll", "bool", "PostMessage", "hwnd", WinGetHandle(_getLang("TASK_MANAGER"), ""), "uint", $WM_CLOSE, "wparam", 0, "lparam", 0)
-	  MsgBox(BitOR($MB_ICONWARNING, $MB_TOPMOST), _getLang("TASK_MANAGER"), _getLang("TASKMGR_MSG"), 3)
+   ; check session...
+   If _IsSessionLocked() Then
+	  ; We temporarily release it if the user locks the session, preventing unwanted locks
+	  _chkExplorer(False)
+   Else
+	  _chkExplorer(True)	; We activate it again
    EndIf
-
-   If $g_bDisableExplorer And $g_bOSVersion Then _chkExplorer(True) ; We reset the value when returning from the blocked session
 
    Sleep(50)	; save CPU :?
 WEnd
@@ -222,10 +218,26 @@ _chkUpdates()
 Exit
 
 ;~ Functions
+Func _IsSessionLocked()
+   Static $iLastCheck, $bLastState = False
+
+   ; Only check every X ms to reduce CPU usage
+   If TimerDiff($iLastCheck) < 500 Then Return $bLastState
+
+   $iLastCheck = TimerInit() ; reset timer
+
+   $aResult = DllCall("user32.dll", "bool", "GetForegroundWindow")
+
+   $bLastState = (Not @error And $aResult[0] = 0)
+
+   Return $bLastState
+EndFunc
+
 Func _chkExplorer($bParam)
    Static $bLastParam
 
    If $bParam = $bLastParam Then Return
+
    $bLastParam = $bParam
 
    $aProcessList = ProcessList("explorer.exe")
@@ -320,9 +332,6 @@ Func _ProcessParameters()
 				  Exit _chkExplorer(False)
                EndIf
             EndIf
-
-         Case "/DisableTaskMgr", "/dt"
-			$g_bDisableTaskMgr = True
 
          Case "/DisableExplorer", "/de"
             $g_bDisableExplorer = True
@@ -541,7 +550,7 @@ Func _getOSLang()
 EndFunc
 
 Func _EnableBlur($hGUI)
-   If Not $g_bOSVersion Then
+   If Not StringRegExp(@OSVersion, "_(8|10|11|201|202)") Then	; Get OS Version
 	  WinSetTrans($hGUI, "", $g_iTransparencyGUI)
 	  Return False
    EndIf
