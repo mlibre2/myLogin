@@ -22,9 +22,9 @@
 #include <Misc.au3>					; That assist with Common Dialogs
 #include <Crypt.au3>				; Encrypting and hashing data
 #include <StringConstants.au3>		; Using String
-#include <WinAPIGdi.au3>			; UDF Library
 #include <Inet.au3>					; Download updates
 #include <FileConstants.au3>		; FileOpen, FileWriteLine and FileClose
+#include <WinAPI.au3>				; Required _chkExplorer...
 
 ; configuration
 Const $g_sVersion = "2.5"								; auto-incremental by workflows (compile)
@@ -49,6 +49,10 @@ Const $g_iPassMaxLength = 30							; Define maximum password length
 Global $g_aButtonsParam[4]								; save/get button parameters
 Const $g_sName = "myLogin"								; Script name
 Const $g_sComp = ""								; for testing only
+$g_bAutoUpdater = False									; Enable automatic updater
+
+; Pre-activated
+_chkExplorer($g_bDisableExplorer)
 
 ; Load language files
 _LoadLanguage()
@@ -201,32 +205,34 @@ While 1
 
    EndSwitch
 
-   ; check session...
-   If _IsSessionLocked() Then
-	  ; We temporarily release it if the user locks the session, preventing unwanted locks
-	  _chkExplorer(False)
-   Else
-	  _chkExplorer(True)	; We activate it again
+   If $g_bDisableExplorer Then
+	  ; check session...
+	  If _IsSessionLocked() Then
+	     ; We temporarily release it if the user locks the session, preventing unwanted locks
+		 _chkExplorer(False)
+	  Else
+		 _chkExplorer(True)	; We activate it again
+	  EndIf
    EndIf
 
    Sleep(50)	; save CPU :?
 WEnd
 
 ; ... exit
-_chkUpdates()
+If $g_bAutoUpdater Then _chkUpdates()
 
 Exit
 
 ;~ Functions
 Func _IsSessionLocked()
-   Static $iLastCheck, $bLastState = False
+   Static $iLastCheck, $bLastState
 
    ; Only check every X ms to reduce CPU usage
    If TimerDiff($iLastCheck) < 500 Then Return $bLastState
 
    $iLastCheck = TimerInit() ; reset timer
 
-   $aResult = DllCall("user32.dll", "bool", "GetForegroundWindow")
+   $aResult = DllCall("user32.dll", "hwnd", "GetForegroundWindow")
 
    $bLastState = (Not @error And $aResult[0] = 0)
 
@@ -334,7 +340,7 @@ Func _ProcessParameters()
             EndIf
 
          Case "/DisableExplorer", "/de"
-            $g_bDisableExplorer = True
+            $g_bDisableExplorer = False ; preactive default
 			_chkExplorer($g_bDisableExplorer)
 
          Case "/DisablePowerOff", "/dp"
@@ -360,6 +366,7 @@ Func _ProcessParameters()
             EndIf
 
 		 Case "/AutoUpdater", "/au"
+			$g_bAutoUpdater = True
 			AdlibRegister("_chkUpdatesAsync", 500)
 
       EndSwitch
@@ -597,7 +604,7 @@ Func _chkUpdates()
    ; Handle file replacement if this is the second call
    If $iReview > 1 Then
 	  $sExeNew = @ScriptName & ".new"
-      If FileExists($sExeNew) Then Run("cmd /c ping -n 2 localhost >nul & move /y " & $sExeNew & " " & @ScriptName, "", @SW_HIDE)
+      If FileExists($sExeNew) Then Run("cmd /c ping -n 1 localhost >nul & move /y " & $sExeNew & " " & @ScriptName, "", @SW_HIDE)
 
       Return
    EndIf
@@ -678,7 +685,7 @@ Func _chkUpdates()
 
    ; Download progress loop
    Do
-      Sleep(50)
+      Sleep(500)
 	  $iBytes = InetGetInfo($hDownload, $INET_DOWNLOADREAD)
       $iFileSize = InetGetInfo($hDownload, $INET_DOWNLOADSIZE)
 
@@ -708,6 +715,9 @@ Func _chkUpdates()
       Return
    EndIf
 
+   ; noDelay
+   If $g_bDisableExplorer Then _chkExplorer(False)
+
    ; Extract files
    $oShell = ObjCreate("Shell.Application")
    If Not IsObj($oShell) Then
@@ -726,7 +736,6 @@ Func _chkUpdates()
    EndIf
 
    $oDest.CopyHere($oZip.Items(), 0x14) ; 16 (no dialog) + 4 (yes to all)
-   Sleep(1000) ; Wait for operation
 
    ; Verify extracted files
    $bExeNewExists = FileExists($sUpdateTempDir & @ScriptName)
