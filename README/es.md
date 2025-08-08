@@ -40,29 +40,20 @@ Usa tu Hash para iniciar el programa:
 > ⚙️ Los siguientes parámetros son opcionales, no son requeridos.
   
 
-- ``/DisableTaskMgr`` ó ``/dt``
-
-  Con este parámetro podrás deshabilitar el **Administrador de tareas** para dificultar omitir el login, como por ejemplo finalizar el proceso.
-  
-
 - ``/DisableExplorer`` ó ``/de``
 
   Con este parámetro podrás deshabilitar temporalmente el **Explorador de Windows**, impidiendo que no aparezca la barra de tareas, iconos del escritorio ni sea posible abrir el menú inicio.
+  > Para mayor seguridad, está habilitado de forma predeterminada desde [v2.5](https://github.com/mlibre2/myLogin/releases/tag/2.5)
 
 
 - ``/DisablePowerOff`` ó ``/dp``
   
-    Con este parámetro podrás deshabilitar el botón de Apagar **(disponible desde [v1.1](https://github.com/mlibre2/myLogin/releases/tag/1.1))**
+  Con este parámetro podrás deshabilitar el botón de Apagar **(disponible desde [v1.1](https://github.com/mlibre2/myLogin/releases/tag/1.1))**
 
 
 - ``/DisableReboot`` ó ``/dr``
   
-    Con este parámetro podrás deshabilitar el botón de Reiniciar **(disponible desde [v1.1](https://github.com/mlibre2/myLogin/releases/tag/1.1))**
-
-
-- ``/DisableLockSession`` ó ``/dl``
-  
-    Con este parámetro podrás deshabilitar el botón de Bloquear sesión **(disponible desde [v2.0](https://github.com/mlibre2/myLogin/releases/tag/2.0))**
+  Con este parámetro podrás deshabilitar el botón de Reiniciar **(disponible desde [v1.1](https://github.com/mlibre2/myLogin/releases/tag/1.1))**
   
 
 - ``/Style`` ó ``/st``
@@ -73,13 +64,9 @@ Usa tu Hash para iniciar el programa:
 
   ``MyLogin.exe /PassHash 0x9461E4B1394C6134483668F09CCF7B93 /Style 1``
 
-- ``/AutoUpdater`` or ``/au``
-
-  Con este parámetro podrás habilitar las actualizaciones automáticas cada vez que se inicia el programa, una vez descargado el paquete, se instala en el próximo inicio. **(disponible desde [v2.2](https://github.com/mlibre2/myLogin/releases/tag/2.2))**
-
   Ejemplo con todas las opciones:
 
-  ``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dt /de /st 1``
+  ``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dp /dr /dl /st 1 /au``
 
 ## 📥 ¿Cómo lo descargo?
 
