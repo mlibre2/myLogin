@@ -38,41 +38,38 @@ This hash is the password you entered earlier in plain text but encrypted.
 > [!NOTE]
 > ⚙️ The following parameters are optional; they are not required.
 
-- ``/DisableTaskMgr`` or ``/dt``
-
-With this parameter, you can disable the **Task Manager** to make it difficult to bypass login, such as terminating the process.
-
 - ``/DisableExplorer`` or ``/de``
-
-With this parameter, you can temporarily disable **Windows Explorer**, preventing the taskbar, desktop icons, and the ability to open the Start menu.
+  
+  With this parameter, you can temporarily disable **Windows Explorer**, preventing the taskbar, desktop icons, and the ability to open the Start menu.
+  > For added security, it is enabled by default since [v2.5](https://github.com/mlibre2/myLogin/releases/tag/2.5)
 
 - ``/DisablePowerOff`` or ``/dp``
 
-With this parameter, you can disable the Power Off button **(available since [v1.1](https://github.com/mlibre2/myLogin/releases/tag/1.1))**
+  With this parameter, you can disable the Power Off button **(available since [v1.1](https://github.com/mlibre2/myLogin/releases/tag/1.1))**
 
 - ``/DisableReboot`` or ``/dr``
 
-With this parameter, you can disable the Restart button **(available since [v1.1](https://github.com/mlibre2/myLogin/releases/tag/1.1))**
+  With this parameter, you can disable the Restart button **(available since [v1.1](https://github.com/mlibre2/myLogin/releases/tag/1.1))**
 
 - ``/DisableLockSession`` or ``/dl``
 
-With this parameter, you can disable the Lock Session button **(available since [v2.0](https://github.com/mlibre2/myLogin/releases/tag/2.0))**
+  With this parameter, you can disable the Lock Session button **(available since [v2.0](https://github.com/mlibre2/myLogin/releases/tag/2.0))**
 
 - ``/Style`` or ``/st``
 
-With this parameter, you can change the layout (0=Default White, 1=Dark, 2=Light Blue)
+  With this parameter, you can change the layout (0=Default White, 1=Dark, 2=Light Blue)
 
-Example, enable dark mode:
+  Example, enable dark mode:
 
 ``MyLogin.exe /PassHash 0x9461E4B1394C6134483668F09CCF7B93 /Style 1``
 
 - ``/AutoUpdater`` or ``/au``
 
-With this parameter, you enable automatic updates every time the program starts, once the package is downloaded, it is installed on the next start. **(available since [v2.2](https://github.com/mlibre2/myLogin/releases/tag/2.2))**
+  With this parameter, you enable automatic updates every time the program starts, once the package is downloaded, it is installed on the next start. **(available since [v2.2](https://github.com/mlibre2/myLogin/releases/tag/2.2))**
 
-Example with all options:
+  Example with all options:
 
-``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dt /de /st 1``
+``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dp /dr /dl /st 1 /au``
 
 ## 📥 How do I download it?
 
