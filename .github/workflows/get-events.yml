@@ -1,0 +1,107 @@
+name: Get events
+
+on:
+  issues:
+    types: [opened, reopened, closed]
+  pull_request:
+    types: [opened, reopened, closed]
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  get_events:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Manage events
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const repoData = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            const repoCreator = repoData.data.owner.login;
+            
+            const { eventName, payload } = context;
+            const isPR = eventName === 'pull_request';
+            const item = isPR ? payload.pull_request : payload.issue;
+
+            // Verify we have the repo creator
+            if (!repoCreator) {
+              core.error('Could not get repository creator');
+              return;
+            }
+
+            console.log(`Repository creator: ${repoCreator}`);
+
+            // Configuration by type
+            const config = {
+              issue: {
+                label: 'closed',
+                messages: {
+                  opened: `📌 Hello @${item.user.login}! Thanks for opening this issue. I've assigned @${repoCreator} for review.`,
+                  reopened: `🔓 Issue reopened by @${payload.sender.login}. @${repoCreator} has been notified.`,
+                  closed: `🔒 Issue closed by @${payload.sender.login}. Thank you for your contribution.`
+                }
+              },
+              pr: {
+                label: 'pr-closed',
+                messages: {
+                  opened: `🔄 Thank you @${item.user.login} for your Pull Request! I've assigned @${repoCreator} for review.`,
+                  reopened: `📌 PR reopened by @${payload.sender.login}. @${repoCreator} has been notified.`,
+                  closed: `✅ PR closed by @${payload.sender.login}. ${item.merged ? 'Successfully merged!' : 'Closed without merging.'}`
+                }
+              }
+            };
+
+            const { label, messages } = config[isPR ? 'pr' : 'issue'];
+
+            // Auto-assign to repo creator when opened/reopened
+            if (['opened', 'reopened'].includes(payload.action)) {
+              try {
+                await github.rest.issues.addAssignees({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: item.number,
+                  assignees: [repoCreator]
+                });
+                console.log(`Successfully assigned to @${repoCreator}`);
+              } catch (error) {
+                core.error(`Assignment error: ${error}`);
+                throw error;
+              }
+            }
+
+            // Label management
+            if (payload.action === 'closed') {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: item.number,
+                labels: [label]
+              });
+            } 
+            else if (payload.action === 'reopened') {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: item.number,
+                  name: label
+                });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+              }
+            }
+
+            // Contextual comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: item.number,
+              body: messages[payload.action]
+            });
