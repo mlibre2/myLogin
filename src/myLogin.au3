@@ -42,7 +42,7 @@ $g_bDisableExplorer = True								; Disable Windows Explorer
 $g_bDisablePowerOff = False								; Disable system Shutdown button
 $g_bDisableReboot = False								; Disable system Reboot button
 $g_bDisableLockSession = False							; Disable system Lock button
-Const $g_sLanguage = _getOSLang()						; Get language (system)
+$g_sLanguage = _getOSLang()								; Get language (system)
 $g_oLangLookup = ObjCreate("Scripting.Dictionary")		; Optimize searches table hash O(1)
 Const $g_iPassMinLength = 2								; Define minimum password length
 Const $g_iPassMaxLength = 30							; Define maximum password length
@@ -300,8 +300,8 @@ Func _GenerateNewHash()
       ; If user cancels
       If @error Then
          MsgBox($MB_ICONINFORMATION, _getLang("INFO"), _getLang("HASH_GENERATION_CANCELED"))
-         Exit _chkExplorer(False)
 
+         If $g_bDisableExplorer Then Exit _chkExplorer(False)
       EndIf
 
       ; Validations
@@ -325,7 +325,7 @@ Func _ProcessParameters()
       Switch $CmdLine[$i]
          Case "/GenerateHash", "/gh"
             _GenerateNewHash()
-            Exit _chkExplorer(False)
+            If $g_bDisableExplorer Then Exit _chkExplorer(False)
 
          Case "/PassHash", "/ph"
             If $i + 1 <= $CmdLine[0] Then
@@ -335,7 +335,8 @@ Func _ProcessParameters()
                ; Basic hash validation
                If StringLen($g_sPassHash) <> 34 Or StringLeft($g_sPassHash, 2) <> "0x" Then
                   MsgBox($MB_ICONERROR, _getLang("ERROR_TITLE"), _getLang("INVALID_HASH") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("GENERATE_HASH_HELP") & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
-				  Exit _chkExplorer(False)
+
+				  If $g_bDisableExplorer Then Exit _chkExplorer(False)
                EndIf
             EndIf
 
@@ -377,7 +378,7 @@ Func _ProcessParameters()
 
       If $iButton = $IDYES Then _GenerateNewHash()
 
-      Exit _chkExplorer(False)
+      If $g_bDisableExplorer Then Exit _chkExplorer(False)
 
    EndIf
 
@@ -393,14 +394,38 @@ Func _LoadLanguage()
    $sLangFile = @ScriptDir & "\lang\" & $g_sLanguage & ".ini"
 
    ; If the language file does not exist, load English by default.
-   If Not FileExists($sLangFile) Then $sLangFile = @ScriptDir & "\lang\en.ini"
-   If Not FileExists($sLangFile) Then Exit MsgBox($MB_ICONERROR, "Error", "Language file not found")
+   If Not FileExists($sLangFile) Then
+	  $sLangFile = @ScriptDir & "\lang\en.ini"
+	  $g_sLanguage = "en"
+
+	  If Not FileExists($sLangFile) Then
+		 If $g_bDisableExplorer Then _chkExplorer(False)
+
+		 MsgBox($MB_ICONERROR, "Error", "Language file not found")
+		 Exit
+	  EndIf
+   EndIf
 
    ; Read file
    $hFile = FileOpen($sLangFile, $FO_UTF8_NOBOM + $FO_READ)
-   If $hFile = -1 Then Exit MsgBox($MB_ICONERROR, "Error", "Unable to open language file")
+
+   If $hFile = -1 Then
+	  If $g_bDisableExplorer Then _chkExplorer(False)
+
+	  MsgBox($MB_ICONERROR, "Error", "Unable to open language file")
+	  Exit
+   EndIf
+
    $sContent = FileRead($hFile)
    FileClose($hFile)
+
+   ; Validate basic INI file content
+   If Not StringInStr($sContent, "[") Or Not StringInStr($sContent, "]") Or Not StringInStr($sContent, "=") Then
+	  If $g_bDisableExplorer Then _chkExplorer(False)
+
+	  MsgBox($MB_ICONERROR, "Error", "Invalid language file format")
+	  Exit
+   EndIf
 
    ; Process lines
    $aLines = StringSplit(StringStripCR($sContent), @LF)
@@ -438,10 +463,11 @@ Func _LoadLanguage()
 EndFunc
 
 Func _getLang($sKey, $vParams = "", $vB = "", $vC = "", $vD = "")
-   ; Check if the key exists
-   $sText = $g_oLangLookup.Item($sKey)
+   ; get key
+   $sText = $g_oLangLookup($sKey)
 
-   If @error Then Return "NOT FOUND: [" & $sKey & "]"
+   ; chk if exists
+   If Not $sText Then Return "NOT FOUND: [" & $sKey & "]"
 
    ; Process dynamic parameters
    If $vParams <> "" Then Return StringFormat($sText, $vParams, $vB, $vC, $vD)
