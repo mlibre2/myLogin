@@ -403,7 +403,6 @@ Func _LoadLanguage()
    ; If the language file does not exist, load English by default.
    If Not FileExists($sLangFile) Then
 	  $sLangFile = @ScriptDir & "\lang\en.ini"
-	  $g_sLanguage = "en"
 
 	  If Not FileExists($sLangFile) Then
 		 If $g_bDisableExplorer Then _chkExplorer(False)
@@ -411,6 +410,8 @@ Func _LoadLanguage()
 		 MsgBox($MB_ICONERROR, "Error", "Language file not found")
 		 Exit
 	  EndIf
+
+	  $g_sLanguage = "en" ; set the default language
    EndIf
 
    ; Read file
@@ -426,8 +427,8 @@ Func _LoadLanguage()
    $sContent = FileRead($hFile)
    FileClose($hFile)
 
-   ; Validate basic INI file content
-   If Not StringInStr($sContent, "[") Or Not StringInStr($sContent, "]") Or Not StringInStr($sContent, "=") Then
+   ; Validate INI file content
+   If StringLeft($sContent, 4) <> "[" & $g_sLanguage & "]" Or Not StringRegExp($sContent, "(?:\r\n|\n|\A)\w+\s*=") Then
 	  If $g_bDisableExplorer Then _chkExplorer(False)
 
 	  MsgBox($MB_ICONERROR, "Error", "Invalid language file format")
