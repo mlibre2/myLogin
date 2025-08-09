@@ -64,7 +64,12 @@ Usa tu Hash para iniciar el programa:
 
   ``MyLogin.exe /PassHash 0x9461E4B1394C6134483668F09CCF7B93 /Style 1``
 
-  Ejemplo con todas las opciones:
+- ``/DisableBlur`` or ``/db``
+
+  Con este parámetro, puede desactivar el desenfoque de pantalla **(disponible desde [v2.8](https://github.com/mlibre2/myLogin/releases/tag/2.8))**
+
+
+Ejemplo con todas las opciones:
 
   ``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dp /dr /dl /st 1 /au``
 
