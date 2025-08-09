@@ -50,6 +50,7 @@ Global $g_aButtonsParam[4]								; save/get button parameters
 Const $g_sName = "myLogin"								; Script name
 Const $g_sComp = ""								; for testing only
 $g_bAutoUpdater = False									; Enable automatic updater
+$g_bDisableBlur = False									; Turn off blur
 
 ; Pre-activated
 _chkExplorer($g_bDisableExplorer)
@@ -300,8 +301,7 @@ Func _GenerateNewHash()
       ; If user cancels
       If @error Then
          MsgBox($MB_ICONINFORMATION, _getLang("INFO"), _getLang("HASH_GENERATION_CANCELED"))
-
-         If $g_bDisableExplorer Then Exit _chkExplorer(False)
+         Exit
       EndIf
 
       ; Validations
@@ -323,9 +323,11 @@ EndFunc
 Func _ProcessParameters()
    For $i = 1 To $CmdLine[0]
       Switch $CmdLine[$i]
-         Case "/GenerateHash", "/gh"
+		 Case "/GenerateHash", "/gh"
+			If $g_bDisableExplorer Then _chkExplorer(False)
+
             _GenerateNewHash()
-            If $g_bDisableExplorer Then Exit _chkExplorer(False)
+			Exit
 
          Case "/PassHash", "/ph"
             If $i + 1 <= $CmdLine[0] Then
@@ -334,9 +336,10 @@ Func _ProcessParameters()
 
                ; Basic hash validation
                If StringLen($g_sPassHash) <> 34 Or StringLeft($g_sPassHash, 2) <> "0x" Then
-                  MsgBox($MB_ICONERROR, _getLang("ERROR_TITLE"), _getLang("INVALID_HASH") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("GENERATE_HASH_HELP") & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
+				  If $g_bDisableExplorer Then _chkExplorer(False)
 
-				  If $g_bDisableExplorer Then Exit _chkExplorer(False)
+                  MsgBox($MB_ICONERROR, _getLang("ERROR_TITLE"), _getLang("INVALID_HASH") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("GENERATE_HASH_HELP") & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
+				  Exit
                EndIf
             EndIf
 
@@ -370,16 +373,20 @@ Func _ProcessParameters()
 			$g_bAutoUpdater = True
 			AdlibRegister("_chkUpdatesAsync", 500)
 
+		 Case "/DisableBlur", "/db"
+			$g_bDisableBlur = True
+
       EndSwitch
    Next
 
    If $g_sPassHash = "" Then
+	  If $g_bDisableExplorer Then _chkExplorer(False)
+
       $iButton = MsgBox($MB_YESNO, _getLang("ERROR_TITLE"), _getLang("MISSING_HASH") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("GENERATE_HASH_HELP") & @CRLF & @CRLF & @ScriptName & " /GenerateHash" & @CRLF & @CRLF & @CRLF & _getLang("GENERATE_NOW"))
 
       If $iButton = $IDYES Then _GenerateNewHash()
 
-      If $g_bDisableExplorer Then Exit _chkExplorer(False)
-
+      Exit
    EndIf
 
    ; save button parameters
@@ -583,7 +590,8 @@ Func _getOSLang()
 EndFunc
 
 Func _EnableBlur($hGUI)
-   If Not StringRegExp(@OSVersion, "_(8|10|11|201|202)") Then	; Get OS Version
+   ; get parameter and chk blur compatibility
+   If $g_bDisableBlur Or Not StringRegExp(@OSVersion, "_(8|10|11|201|202)") Then	; Get OS Version
 	  WinSetTrans($hGUI, "", $g_iTransparencyGUI)
 	  Return False
    EndIf
