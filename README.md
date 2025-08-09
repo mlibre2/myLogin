@@ -67,7 +67,11 @@ This hash is the password you entered earlier in plain text but encrypted.
 
   With this parameter, you enable automatic updates every time the program starts, once the package is downloaded, it is installed on the next start. **(available since [v2.2](https://github.com/mlibre2/myLogin/releases/tag/2.2))**
 
-  Example with all options:
+- ``/DisableBlur`` or ``/db``
+
+  With this parameter, you can disable the screen blur **(available since [v2.8](https://github.com/mlibre2/myLogin/releases/tag/2.8))**
+
+Example with all options:
 
 ``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dp /dr /dl /st 1 /au``
 
