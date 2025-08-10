@@ -320,13 +320,26 @@ jobs:
         #  $lines[4] = "- New update"
         #  $lines[5] = "- Fixed lines"
         
-        $title = $lines[2]
-        $description = $lines[4..($lines.Count-1)] -join "`n"
+        # Initialize variables
+        $title = ""
+        $description = ""
+        
+        # Only proceed if there are enough lines
+        if ($lines -and $lines.Count -ge 3) {
+            $title = $lines[2]
+            
+            if ($lines.Count -ge 5) {
+                $description = $lines[4..($lines.Count-1)] -join "`n"
+            }
+        }
 
-        "COMMIT_TITLE=$($title -replace "`n", " ")" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-        "COMMIT_DESCRIPTION<<EOF" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-        $description | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-        "EOF" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        # Only set environment variables if title exists
+        if ($title) {
+            "COMMIT_TITLE=$($title -replace "`n", " ")" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            "COMMIT_DESCRIPTION<<EOF" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            $description | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            "EOF" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        }
         
 ######################################################################### update release notes
 
