@@ -52,8 +52,9 @@ Const $g_sComp = ""								; for testing only
 $g_bAutoUpdater = False									; Enable automatic updater
 $g_bDisableBlur = False									; Turn off blur
 
-; Pre-activated
-_chkExplorer($g_bDisableExplorer)
+; preCache
+Enum $PassHash, $DisableExplorer, $DisablePowerOff, $DisableReboot, $DisableLockSession, $Style, $AutoUpdater, $DisableBlur
+Global $g_aCache[8] = [$g_sPassHash, $g_bDisableExplorer, $g_bDisablePowerOff, $g_bDisableReboot, $g_bDisableLockSession, $g_iStyle, $g_bAutoUpdater, $g_bDisableBlur]
 
 ; Load language files
 _LoadLanguage()
@@ -63,6 +64,9 @@ If Not _Singleton($g_sName, 1) Then
    MsgBox($MB_ICONWARNING, @ScriptName, _getLang("PROGRAM_ALREADY_OPEN"), 3)
    Exit
 EndIf
+
+; Pre-activated
+_chkExplorer($g_bDisableExplorer)
 
 ; ...command line
 _ProcessParameters()
@@ -142,6 +146,8 @@ While 1
    Switch GUIGetMsg()
 	  Case $GUI_EVENT_CLOSE, $idUnlock
          If _VerifyPassword() Then
+			GUISetState(@SW_LOCK, $hGUI) ; avoid flickering when making multiple changes
+
             GUICtrlSetImage($idIcoPass, "imageres.dll", -102)
             GUISetBkColor(0x0F8600, $hGUI)	; semi dark green
 
@@ -161,10 +167,13 @@ While 1
 
             SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
 
+			GUISetState(@SW_UNLOCK, $hGUI)
             Sleep(400)
 
             ExitLoop
          EndIf
+
+		 GUISetState(@SW_LOCK, $hGUI)
 
          $g_iFailAttempts += 1
 
@@ -178,9 +187,13 @@ While 1
 
 		 _DisableButtons(True)
 
+		 GUISetState(@SW_UNLOCK, $hGUI)
+
 		 If $g_iFailAttempts >= 3 Then Sleep(100 * $g_iFailAttempts)
 
 		 Sleep(300)
+
+		 GUISetState(@SW_LOCK, $hGUI)
 
 		 _DisableButtons(False)
 
@@ -188,6 +201,8 @@ While 1
          GUISetBkColor($g_iBkColorGUI, $hGUI)
 
 		 GUICtrlSetState($idInput, $GUI_FOCUS)
+
+		 GUISetState(@SW_UNLOCK, $hGUI)
 
       Case $idPowerOff
 		 _ShutdownSys("/s")
@@ -210,6 +225,7 @@ While 1
 	  ; check session...
 	  If _IsSessionLocked() Then
 	     ; We temporarily release it if the user locks the session, preventing unwanted locks
+
 		 _chkExplorer(False)
 	  Else
 		 _chkExplorer(True)	; We activate it again
@@ -226,7 +242,7 @@ Exit
 
 ;~ Functions
 Func _IsSessionLocked()
-   Static $iLastCheck, $bLastState
+   Static $iLastCheck = TimerInit(), $bLastState
 
    ; Only check every X ms to reduce CPU usage
    If TimerDiff($iLastCheck) < 500 Then Return $bLastState
@@ -291,6 +307,8 @@ Func _Time()
 EndFunc
 
 Func _GenerateNewHash()
+   Sleep(150) ; small delay
+
    $bValid = False
    $sInput = ""
 
@@ -334,7 +352,7 @@ Func _ProcessParameters()
                $g_sPassHash = $CmdLine[$i + 1]
                $i += 1 ; Skip to next parameter
 
-               ; Basic hash validation
+               ; Hash validation
                If StringLen($g_sPassHash) <> 34 Or StringLeft($g_sPassHash, 2) <> "0x" Then
 				  If $g_bDisableExplorer Then _chkExplorer(False)
 
@@ -362,11 +380,14 @@ Func _ProcessParameters()
                $i += 1
 
                Switch $g_iStyle
-                  Case "1"   ; dark
+                  Case 1   ; dark
                      $g_iBkColorPassGUI = 0x050505
-                  Case "2"   ; aqua
+                  Case 2   ; aqua
                      $g_iBkColorPassGUI = 0x00696D
-               EndSwitch
+			   EndSwitch
+
+			   ; fixed
+			   If $g_iStyle < 0 Or $g_iStyle > 2 Then $g_iStyle = 0
             EndIf
 
 		 Case "/AutoUpdater", "/au"
@@ -376,20 +397,38 @@ Func _ProcessParameters()
 		 Case "/DisableBlur", "/db"
 			$g_bDisableBlur = True
 
+		 Case "/Uninstall", "/ui"
+			; get configuration INI... we look for a preconfigured hash
+			_ProcessConfig(False)
+
+			If $g_bDisableExplorer Then _chkExplorer(False)
+
+			If $g_bAutoUpdater Then $g_bAutoUpdater = False
+
+			_Uninstall()
+			Exit
+
+         Case "/UpdateConfig", "/uc"
+            If $i + 2 <= $CmdLine[0] Then
+               $sSourcePath = $CmdLine[$i + 1]
+			   $sDestPath = $CmdLine[$i + 2]
+               $i += 2
+
+			   If $g_bDisableExplorer Then _chkExplorer(False)
+
+			   If $g_bAutoUpdater Then $g_bAutoUpdater = False
+
+               _UpdateConfig($sSourcePath, $sDestPath)
+			   Exit
+            EndIf
+
       EndSwitch
    Next
 
-   If $g_sPassHash = "" Then
-	  If $g_bDisableExplorer Then _chkExplorer(False)
+   ; get configuration INI
+   _ProcessConfig(True)
 
-      $iButton = MsgBox($MB_YESNO, _getLang("ERROR_TITLE"), _getLang("MISSING_HASH") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("GENERATE_HASH_HELP") & @CRLF & @CRLF & @ScriptName & " /GenerateHash" & @CRLF & @CRLF & @CRLF & _getLang("GENERATE_NOW"))
-
-      If $iButton = $IDYES Then _GenerateNewHash()
-
-      Exit
-   EndIf
-
-   ; save button parameters
+   ; Save button parameters
    Local $aButtons = [$g_bDisablePowerOff, $g_bDisableReboot, $g_bDisableLockSession]
 
    For $i = 0 To UBound($aButtons) - 1
@@ -398,24 +437,28 @@ Func _ProcessParameters()
 EndFunc
 
 Func _LoadLanguage()
-   $sLangFile = @ScriptDir & "\lang\" & $g_sLanguage & ".ini"
+   $sLangFile = @ScriptDir & "\lang\" & $g_sLanguage
 
-   ; If the language file does not exist, load English by default.
-   If Not FileExists($sLangFile) Then
-	  $sLangFile = @ScriptDir & "\lang\en.ini"
+   ; Change of ini extension to txt since version >=2.9
+   If FileExists($sLangFile & ".ini") Then FileMove($sLangFile & ".ini", $sLangFile & ".txt", $FC_OVERWRITE)
 
-	  If Not FileExists($sLangFile) Then
+   ; If the language file does not exist, load English by default
+   If Not FileExists($sLangFile & ".txt") Then
+	  $g_sLanguage = "en" ; set the default language
+	  $sLangFile = @ScriptDir & "\lang\" & $g_sLanguage
+
+	  If FileExists($sLangFile & ".ini") Then FileMove($sLangFile & ".ini", $sLangFile & ".txt", $FC_OVERWRITE)
+
+	  If Not FileExists($sLangFile & ".txt") Then
 		 If $g_bDisableExplorer Then _chkExplorer(False)
 
 		 MsgBox($MB_ICONERROR, "Error", "Language file not found")
 		 Exit
 	  EndIf
-
-	  $g_sLanguage = "en" ; set the default language
    EndIf
 
    ; Read file
-   $hFile = FileOpen($sLangFile, $FO_UTF8_NOBOM + $FO_READ)
+   $hFile = FileOpen($sLangFile & ".txt", $FO_UTF8_NOBOM + $FO_READ)
 
    If $hFile = -1 Then
 	  If $g_bDisableExplorer Then _chkExplorer(False)
@@ -427,7 +470,7 @@ Func _LoadLanguage()
    $sContent = FileRead($hFile)
    FileClose($hFile)
 
-   ; Validate INI file content
+   ; Validate TXT/INI file content
    If StringLeft($sContent, 4) <> "[" & $g_sLanguage & "]" Or Not StringRegExp($sContent, "(?:\r\n|\n|\A)\w+\s*=") Then
 	  If $g_bDisableExplorer Then _chkExplorer(False)
 
@@ -591,7 +634,7 @@ Func _getOSLang()
 EndFunc
 
 Func _EnableBlur($hGUI)
-   ; get parameter and chk blur compatibility
+   ; get parameter and chk compatibility
    If $g_bDisableBlur Or Not StringRegExp(@OSVersion, "_(8|10|11|201|202)") Then	; Get OS Version
 	  WinSetTrans($hGUI, "", $g_iTransparencyGUI)
 	  Return False
@@ -632,16 +675,24 @@ Func _chkUpdatesAsync()
 EndFunc
 
 Func _chkUpdates()
-   Static $iReview
+   Static $iReview, $sUpdateTempDir, $sFileExt, $bPortable
 
    $iReview += 1
 
+   ; We assume it is the portable version
+   If $iReview = 1 And Not FileExists(@ScriptDir & "\unins000.exe") Then $bPortable = True
+
    ; Handle file replacement if this is the second call
    If $iReview > 1 Then
-	  $sExeNew = @ScriptName & ".new"
-      If FileExists($sExeNew) Then Run("cmd /c ping -n 1 localhost >nul & move /y " & $sExeNew & " " & @ScriptName, "", @SW_HIDE)
 
-      Return
+	  ; we check if it is the portable version
+	  $sExeNew = @ScriptName & ".new"
+      If $bPortable And FileExists($sExeNew) Then Exit Run("cmd /c ping -n 1 localhost >nul & move /y " & $sExeNew & " " & @ScriptName, "", @SW_HIDE)
+
+	  ; Or setup installer
+	  If Not $bPortable And FileExists($sFileExt) Then Exit Run("cmd /c ping -n 1 localhost >nul & start """" """ & $sFileExt & """ /silent", "", @SW_HIDE)
+
+	  Exit ; We prevented it from continuing
    EndIf
 
    ; Initialize update check
@@ -657,7 +708,7 @@ Func _chkUpdates()
    EndIf
 
    ; Get release information
-   $sResponse = BinaryToString(InetRead($sReleasesURL))
+   $sResponse = BinaryToString(InetRead($sReleasesURL, $INET_FORCEBYPASS))
    If @error Or $sResponse = "" Then
       _Log("Error: " & _getLang("ERROR_NO_GET_UPDATE"))
       Return
@@ -674,13 +725,13 @@ Func _chkUpdates()
    _Log(_getLang("LATEST_VERSION", $sLatestVersion))
 
    ; Compare versions
-   If _VersionCompare($g_sVersion, $sLatestVersion) >= 0 Then
-      _Log(_getLang("ALREADY_LATEST_VERSION"))
+   If $g_sVersion == $sLatestVersion Or _VersionCompare($g_sVersion, $sLatestVersion) > 0 Then
+	  _Log(_getLang("ALREADY_LATEST_VERSION"))
       Return
    EndIf
 
    ; Get download URL
-   $aUrlMatch = StringRegExp($sResponse, '"browser_download_url":"(https:[^"]+?' & $g_sName & '[^"]+?\.zip)"', 1)
+   $aUrlMatch = StringRegExp($sResponse, '"browser_download_url":"(https:[^"]+?' & $g_sName & '[^"]+?\' & ($bPortable ? ".zip" : "_Setup.exe") & ')"', 1)
    If @error Or Not IsArray($aUrlMatch) Then
       _Log("Error: " & _getLang("ERROR_DOWNLOAD_URL"))
       Return
@@ -697,13 +748,12 @@ Func _chkUpdates()
       Return
    EndIf
 
-   $sZipFile = $sUpdateTempDir & $g_sName & $sLatestVersion & ".zip"
+   $sFileExt = $sUpdateTempDir & $g_sName & $sLatestVersion & ($bPortable ? ".zip" : "_Setup.exe")
 
    ; Download with progress
-   $hDownload = InetGet($sDownloadURL, $sZipFile, $INET_FORCEBYPASS, $INET_DOWNLOADBACKGROUND)
+   $hDownload = InetGet($sDownloadURL, $sFileExt, $INET_FORCEBYPASS, $INET_DOWNLOADBACKGROUND)
    If @error Then
       _Log("Error: " & _getLang("ERROR_DOWNLOAD"))
-	  DirRemove($sUpdateTempDir, $DIR_REMOVE)
       Return
    EndIf
 
@@ -731,74 +781,78 @@ Func _chkUpdates()
          If $iPercent <> $iLastPercent Then
             $iLastPercent = $iPercent
 			$iElapsed = TimerDiff($iStartTime) / 1000
-			$sSpeed = $iElapsed > 0 ? _BytesToSize($iBytes / $iElapsed) & "/s" : "N/A"
+			$sSpeed = $iElapsed > 0 ? _BytesToSize($iBytes / $iElapsed, False) & "/s" : "N/A"
 
-            ProgressSet($iPercent, Round($iPercent) & "% - " & _BytesToSize($iBytes) & "/" & _BytesToSize($iFileSize) & @CRLF & _getLang("SPEED") & ": " & $sSpeed)
+            ProgressSet($iPercent, Round($iPercent) & "% - " & _BytesToSize($iBytes, True) & "/" & _BytesToSize($iFileSize, True) & @CRLF & _getLang("SPEED") & ": " & $sSpeed)
          EndIf
       EndIf
    Until InetGetInfo($hDownload, $INET_DOWNLOADCOMPLETE)
 
    InetClose($hDownload)
-   ProgressSet(100, "100% - " & _getLang("DONE") & " " & _BytesToSize($iFileSize), _getLang("COMPLETE"))
+   ProgressSet(100, "100% - " & _getLang("DONE") & " " & _BytesToSize($iFileSize, True), _getLang("COMPLETE"))
    Sleep(2000)
    ProgressOff()
 
    ; Verify download
-   If Not FileExists($sZipFile) Or FileGetSize($sZipFile) = 0 Then
+   If Not FileExists($sFileExt) Or FileGetSize($sFileExt) = 0 Then
       _Log("Error: " & _getLang("ERROR_DOWNLOAD"))
-      DirRemove($sUpdateTempDir, $DIR_REMOVE)
       Return
    EndIf
 
    ; noDelay
    If $g_bDisableExplorer Then _chkExplorer(False)
 
-   ; Extract files
-   $oShell = ObjCreate("Shell.Application")
-   If Not IsObj($oShell) Then
-      _Log("Error: " & _getLang("ERROR_EXTRACT_FILES"))
-      DirRemove($sUpdateTempDir, $DIR_REMOVE)
-      Return
+   If $bPortable Then
+	  ; Extract files
+	  $oShell = ObjCreate("Shell.Application")
+	  If Not IsObj($oShell) Then
+		 _Log("Error: " & _getLang("ERROR_EXTRACT_FILES"))
+		 Return
+	  EndIf
+
+	  $oZip = $oShell.NameSpace($sFileExt)
+	  $oDest = $oShell.NameSpace($sUpdateTempDir)
+	  $oShell = 0 ; free memory
+
+	  If Not IsObj($oZip) Or Not IsObj($oDest) Then
+		 _Log("Error: " & _getLang("ERROR_EXTRACT_FILES"))
+		 Return
+	  EndIf
+
+	  $oDest.CopyHere($oZip.Items(), 0x14) ; 16 (no dialog) + 4 (yes to all)
+
+	  ; Verify extracted files
+	  $bExeNewExists = FileExists($sUpdateTempDir & @ScriptName)
+	  $bConfigExists = FileExists($sUpdateTempDir & "config.ini")
+	  $bLangExists = FileExists($sUpdateTempDir & "lang\")
+
+	  If Not $bExeNewExists Or Not $bConfigExists Or Not $bLangExists Then
+		 _Log("Error: " & _getLang("ERROR_NO_VALID_FILES"))
+		 Return
+	  EndIf
+
+	  ; Move new executable/ini
+	  If Not FileCopy($sUpdateTempDir & @ScriptName, @ScriptDir & "\" & @ScriptName & ".new", $FC_OVERWRITE) Then
+		 _Log("Error: " & _getLang("ERROR_COPY_NEW_FILE", @ScriptName))
+		 Return
+	  EndIf
+	  _Log(_getLang("COPY_NEW_FILE", @ScriptName))
+
+	  ; Update config only if new keys exist
+	  If Not _UpdateConfig($sUpdateTempDir & "config.ini", @ScriptDir & "\config.ini") Then
+		 _Log("Error: " & _getLang("ERROR_COPY_NEW_FILE", "config.ini"))
+		 Return
+	  EndIf
+	  _Log(_getLang("COPY_NEW_FILE", "config.ini"))
+
+	  ; Update language file only if new keys exist
+	  If Not _UpdateConfig($sUpdateTempDir & "lang\" & $g_sLanguage & ".txt", @ScriptDir & "\lang\" & $g_sLanguage & ".txt") Then
+		 _Log("Error: " & _getLang("ERROR_COPY_NEW_LANG"))
+		 Return
+	  EndIf
+	  _Log(_getLang("COPY_NEW_LANG"))
    EndIf
 
-   $oZip = $oShell.NameSpace($sZipFile)
-   $oDest = $oShell.NameSpace($sUpdateTempDir)
-
-   If Not IsObj($oZip) Or Not IsObj($oDest) Then
-      _Log("Error: " & _getLang("ERROR_EXTRACT_FILES"))
-      DirRemove($sUpdateTempDir, $DIR_REMOVE)
-      Return
-   EndIf
-
-   $oDest.CopyHere($oZip.Items(), 0x14) ; 16 (no dialog) + 4 (yes to all)
-
-   ; Verify extracted files
-   $bExeNewExists = FileExists($sUpdateTempDir & @ScriptName)
-   $bLangExists = FileExists($sUpdateTempDir & "lang\")
-
-   If Not $bExeNewExists Or Not $bLangExists Then
-      _Log("Error: " & _getLang("ERROR_NO_VALID_FILES"))
-      DirRemove($sUpdateTempDir, $DIR_REMOVE)
-      Return
-   EndIf
-
-   ; Move new executable
-   If Not FileCopy($sUpdateTempDir & @ScriptName, @ScriptDir & "\" & @ScriptName & ".new", $FC_OVERWRITE) Then
-      _Log("Error: " & _getLang("ERROR_COPY_NEW_FILE", @ScriptName))
-      DirRemove($sUpdateTempDir, $DIR_REMOVE)
-      Return
-   EndIf
-   _Log(_getLang("COPY_NEW_FILE", @ScriptName))
-
-   ; Move language files if they exist
-   If Not DirCopy($sUpdateTempDir & "lang\", @ScriptDir & "\lang\", $FC_OVERWRITE) Then
-	  _Log("Error: " & _getLang("ERROR_COPY_NEW_LANG"))
-	  Return
-   EndIf
-   _Log(_getLang("COPY_NEW_LANG"))
-
-   ; Cleanup
-   DirRemove($sUpdateTempDir, $DIR_REMOVE)
    _Log(_getLang("UPDATE_PREPARED"))
 
    MsgBox(BitOR($MB_ICONINFORMATION, $MB_TOPMOST), _getLang("MSG1_DOWNLOADED", $g_sName, $sLatestVersion), _getLang("MSG2_DOWNLOADED"), 3)
@@ -810,12 +864,21 @@ Func _IsInternetConnected()
    Return Not @error And $aReturn[0] = 0
 EndFunc
 
-Func _BytesToSize($iBytes)
-   Return StringFormat("%.2f MB", $iBytes / (1024 * 1024))
+Func _BytesToSize($iBytes, $bUnd)
+   If $bUnd Then Return StringFormat("%.2f MB", $iBytes / (1024 * 1024))
+
+   Return StringFormat("%.2f KB", $iBytes / 1024)
 EndFunc
 
 Func _Log($sMessage)
-   Static $sLogPath = @ScriptDir & "\" & $g_sName & "Debug.log"
+   Static $sLogDir = @ScriptDir & "\" & $g_sName & "Update\", $bDirExists = FileExists($sLogDir)
+   Static $sLogPath = $sLogDir & "Debug.log"
+
+   If Not $bDirExists Then
+	  $bDirExists = DirCreate($sLogDir)
+	  If Not $bDirExists Then Return
+   EndIf
+
    Static $sLastDateTime = "", $iLastSec = -1
    $iCurrentSec = @SEC
 
@@ -824,11 +887,397 @@ Func _Log($sMessage)
 	  $iLastSec = $iCurrentSec
    EndIf
 
+   Static $iFileSize = -1
+
+   ; Truncate file if it exceeds (100 MB = 104857600 bytes)
+   If $iFileSize = -1 And FileExists($sLogPath) Then
+	  $iFileSize = FileGetSize($sLogPath)
+
+	  If $iFileSize >= 104857600 Then	; automatic rotation
+
+		 Local $aLines = FileReadToArray($sLogPath)
+		 If Not @error Then
+			$hFile = FileOpen($sLogPath, $FO_OVERWRITE + $FO_UTF8_NOBOM)
+
+			; Keep only the last X lines.
+			For $i = UBound($aLines) - 100 To UBound($aLines) - 1
+			   FileWriteLine($hFile, $aLines[$i])
+			Next
+			FileClose($hFile)
+		 EndIf
+	  EndIf
+   EndIf
+
    $hFile = FileOpen($sLogPath, $FO_APPEND + $FO_UTF8_NOBOM)
    FileWriteLine($hFile, $sLastDateTime & " " & $sMessage)
 
    ; Check if the message contains the word "error" (case insensitive)
-   If StringInStr($sMessage, "error", $STR_NOCASESENSE) Then FileWriteLine($hFile, $sLastDateTime & " " & _getLang("REPORT", "https://github.com/mlibre2/" & $g_sName & $g_sComp & "/issues"))
+   If StringInStr($sMessage, "error:", $STR_NOCASESENSE) Then FileWriteLine($hFile, $sLastDateTime & " " & _getLang("REPORT", "https://github.com/mlibre2/" & $g_sName & $g_sComp & "/issues"))
 
    FileClose($hFile)
+EndFunc
+
+Func _Uninstall()
+   $bValid = False
+   $sInput = ""
+   $sUnins = "unins000.exe"
+   $sUninsPath = @ScriptDir & "\" & $sUnins
+   $bUninsExists = FileExists($sUninsPath)
+
+   ; There is no hash, continue with the uninstallation
+   If $g_sPassHash = "" Then $bValid = True
+
+   ; avoid double confirmation if I use the parameter directly
+   If $bUninsExists And ProcessExists(@ScriptName) And Not ProcessExists($sUnins) Then $bValid = True
+
+   ; Loop until valid password is entered
+   While Not $bValid
+      $sInput = InputBox(_getLang("UNINSTALL_CONFIRM_TITLE"), _getLang("UNINSTALL_CONFIRM_MSG"), "", "*", 350)
+
+      ; If user cancels
+      If @error Then
+		 If $bUninsExists And ProcessExists("_unins.tmp") Then ProcessClose("_unins.tmp") ; setup
+
+         MsgBox($MB_ICONINFORMATION, _getLang("INFO"), _getLang("UNINSTALL_CANCELED"))
+
+         Exit
+      EndIf
+
+      ; Validations
+      If _getHash($sInput) <> $g_sPassHash Then
+         MsgBox($MB_ICONWARNING, _getLang("ERROR_TITLE"), _getLang("INCORRECT_HASH"))
+      Else
+         $bValid = True
+      EndIf
+   WEnd
+
+   ; We assume it is the portable version
+   If $bUninsExists Then
+	  Run($sUninsPath & " /silent /suppressmsgboxes", "", @SW_HIDE)
+   Else
+	  Run('cmd /c ping -n 1 localhost >nul & rd /s /q "' & @ScriptDir & '"', "", @SW_HIDE)
+   EndIf
+
+   Exit
+EndFunc
+
+Func _ProcessConfig($bValue)
+   $sIniFile = @ScriptDir & "\config.ini"
+
+   If Not FileExists($sIniFile) Then
+
+	  ; We check if the parameter was entered previously
+	  If $g_sPassHash = "" Then
+		 If $g_bDisableExplorer Then _chkExplorer(False)
+
+		 $iButton = MsgBox($MB_YESNO, _getLang("ERROR_TITLE"), _getLang("MISSING_HASH") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("GENERATE_HASH_HELP") & @CRLF & @CRLF & @ScriptName & " /GenerateHash" & @CRLF & @CRLF & @CRLF & _getLang("GENERATE_NOW"))
+
+		 If $iButton = $IDYES Then _GenerateNewHash()
+
+		 Exit
+	  EndIf
+   EndIf
+
+   ; We check if the parameter has already been set, if not we look for it in the configuration.
+   If $g_aCache[$PassHash] = $g_sPassHash Then
+	  ; get hash
+	  $g_sPassHash = IniRead($sIniFile, "Config", "PassHash", $g_sPassHash)
+
+	  ; again chk
+	  If $bValue And $g_sPassHash = "" Then
+
+		 If $g_bDisableExplorer Then _chkExplorer(False)
+
+		 $iButton = MsgBox($MB_YESNO, $sIniFile, _getLang("MISSING_HASH") & @CRLF & @CRLF & "[config]" & @CRLF & "PassHash = 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("GENERATE_HASH_HELP") & @CRLF & @CRLF & @ScriptName & " /GenerateHash" & @CRLF & @CRLF & @CRLF & _getLang("GENERATE_NOW"))
+
+		 If $iButton = $IDYES Then
+			ShellExecute($sIniFile) ; open config.ini
+			_GenerateNewHash()
+		 EndIf
+
+		 Exit
+	  EndIf
+
+	  ; Hash validation
+	  If $bValue And StringLen($g_sPassHash) <> 34 Or $bValue And StringLeft($g_sPassHash, 2) <> "0x" Then
+
+		 If $g_bDisableExplorer Then _chkExplorer(False)
+
+		 MsgBox($MB_ICONERROR, $sIniFile, _getLang("INVALID_HASH") & @CRLF & @CRLF & "[config]" & @CRLF & "PassHash = 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("GENERATE_HASH_HELP") & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
+		 Exit
+	  EndIf
+   EndIf
+
+   If Not $bValue Then Return ; It is only used to uninstall, we are not interested in the other values, just the hash.
+
+   If $g_aCache[$Style] = $g_iStyle Then
+	  $g_iStyle = Number(IniRead($sIniFile, "Config", "Style", $g_iStyle))
+
+	  Switch $g_iStyle
+		 Case 1   ; dark
+			$g_iBkColorPassGUI = 0x050505
+		 Case 2   ; aqua
+			$g_iBkColorPassGUI = 0x00696D
+	  EndSwitch
+
+	  ; fixed
+	  If $g_iStyle < 0 Or $g_iStyle > 2 Then $g_iStyle = 0
+   EndIf
+
+   ; read values ini and compare cache
+   If $g_aCache[$DisableExplorer] = $g_bDisableExplorer Then
+	  $g_bDisableExplorer = (IniRead($sIniFile, "Config", "DisableExplorer", $g_bDisableExplorer ? "True" : "False") = "True")
+	  ; Upd state
+	  _chkExplorer($g_bDisableExplorer)
+   EndIf
+
+   If $g_aCache[$DisablePowerOff] = $g_bDisablePowerOff Then $g_bDisablePowerOff = (IniRead($sIniFile, "Config", "DisablePowerOff", $g_bDisablePowerOff ? "True" : "False") = "True")
+
+   If $g_aCache[$DisableReboot] = $g_bDisableReboot Then $g_bDisableReboot = (IniRead($sIniFile, "Config", "DisableReboot", $g_bDisableReboot ? "True" : "False") = "True")
+
+   If $g_aCache[$DisableLockSession] = $g_bDisableLockSession Then $g_bDisableLockSession = (IniRead($sIniFile, "Config", "DisableLockSession", $g_bDisableLockSession ? "True" : "False") = "True")
+
+   If $g_aCache[$AutoUpdater] = $g_bAutoUpdater Then
+	  $g_bAutoUpdater = (IniRead($sIniFile, "Config", "AutoUpdater", $g_bAutoUpdater ? "True" : "False") = "True")
+
+	  If $g_bAutoUpdater Then AdlibRegister("_chkUpdatesAsync", 500)
+   EndIf
+
+   If $g_aCache[$DisableBlur] = $g_bDisableBlur Then $g_bDisableBlur = (IniRead($sIniFile, "Config", "DisableBlur", $g_bDisableBlur ? "True" : "False") = "True")
+EndFunc
+
+Func _UpdateConfig($sNewFilePath, $sOldFilePath)
+   _Log("=== STARTING CONFIGURATION UPDATE ===")
+   _Log("New file: " & $sNewFilePath)
+   _Log("Existing file: " & $sOldFilePath)
+
+   ; Check file existence
+   If Not FileExists($sNewFilePath) Then
+      _Log("Error: New file does not exist")
+      Return False
+   EndIf
+
+   ; Determine file type
+   $bIsLangFile = (StringInStr($sOldFilePath, "\lang\") > 0)
+   _Log("File type: " & ($bIsLangFile ? "Language (.txt)" : "Configuration (.ini)"))
+
+   ; If destination file doesn't exist, copy directly
+   If Not FileExists($sOldFilePath) Then
+      _Log("Copying new file (didn't exist)")
+      Return FileCopy($sNewFilePath, $sOldFilePath, $FC_OVERWRITE)
+   EndIf
+
+   ; Read contents
+   $sNewContent = FileRead($sNewFilePath)
+   If @error Then
+      _Log("Error: Could not read new file")
+      Return False
+   EndIf
+
+   $sCurrentContent = FileRead($sOldFilePath)
+   If @error Then
+      _Log("Error: Could not read existing file")
+      Return False
+   EndIf
+
+   ; Process both files
+   $oCurrent = ObjCreate("Scripting.Dictionary")
+   $oNew = ObjCreate("Scripting.Dictionary")
+   $oCurrentSections = ObjCreate("Scripting.Dictionary") ; To maintain sections
+   $oNewSections = ObjCreate("Scripting.Dictionary")    ; To maintain sections
+   $bChangesFound = False
+
+   ; Process current file
+   _Log("Processing current file...")
+   $aLines = StringSplit(StringStripCR($sCurrentContent), @LF)
+   $sCurrentSection = $bIsLangFile ? $g_sLanguage : "config" ; Default section
+
+   ; For language files, save all original content
+   If $bIsLangFile Then
+      $oCurrent.Item("__original_content__") = $sCurrentContent
+   EndIf
+
+   For $i = 1 To $aLines[0]
+      $sLine = StringStripWS($aLines[$i], $STR_STRIPLEADING + $STR_STRIPTRAILING)
+
+      ; Ignore empty lines or comments (except in language files)
+      If $sLine = "" Or (Not $bIsLangFile And StringLeft($sLine, 1) = ";") Then ContinueLoop
+
+      ; Check section
+      If StringLeft($sLine, 1) = "[" And StringRight($sLine, 1) = "]" Then
+         $sCurrentSection = StringMid($sLine, 2, StringLen($sLine) - 2)
+         If Not $oCurrent.Exists($sCurrentSection) Then
+            $oCurrent.Item($sCurrentSection) = ObjCreate("Scripting.Dictionary")
+            $oCurrentSections.Item($sCurrentSection) = $sLine ; Save exact line
+         EndIf
+         ContinueLoop
+      EndIf
+
+      ; Process key=value
+      If StringInStr($sLine, "=") > 0 Then
+         $aParts = StringSplit($sLine, "=", $STR_NOCOUNT)
+         If UBound($aParts) >= 2 Then
+            $sKey = StringStripWS($aParts[0], $STR_STRIPLEADING + $STR_STRIPTRAILING)
+            $sValue = StringStripWS($aParts[1], $STR_STRIPLEADING + $STR_STRIPTRAILING)
+
+            If Not $oCurrent.Exists($sCurrentSection) Then
+               $oCurrent.Item($sCurrentSection) = ObjCreate("Scripting.Dictionary")
+            EndIf
+
+            $oCurrent.Item($sCurrentSection).Item($sKey) = $sLine ; Save complete line to maintain format
+            _Log("Current key: [" & $sCurrentSection & "] " & $sKey)
+         EndIf
+      EndIf
+   Next
+
+   ; Process new file
+   _Log("Processing new file...")
+   $aLines = StringSplit(StringStripCR($sNewContent), @LF)
+   $sCurrentSection = $bIsLangFile ? $g_sLanguage : "config" ; Default section
+
+   For $i = 1 To $aLines[0]
+      $sLine = StringStripWS($aLines[$i], $STR_STRIPLEADING + $STR_STRIPTRAILING)
+
+      ; Ignore empty lines or comments (except in language files)
+      If $sLine = "" Or (Not $bIsLangFile And StringLeft($sLine, 1) = ";") Then ContinueLoop
+
+      ; Check section
+      If StringLeft($sLine, 1) = "[" And StringRight($sLine, 1) = "]" Then
+         $sCurrentSection = StringMid($sLine, 2, StringLen($sLine) - 2)
+         If Not $oNew.Exists($sCurrentSection) Then
+            $oNew.Item($sCurrentSection) = ObjCreate("Scripting.Dictionary")
+            $oNewSections.Item($sCurrentSection) = $sLine ; Save exact line
+         EndIf
+         ContinueLoop
+      EndIf
+
+      ; Process key=value
+      If StringInStr($sLine, "=") > 0 Then
+         $aParts = StringSplit($sLine, "=", $STR_NOCOUNT)
+         If UBound($aParts) >= 2 Then
+            $sKey = StringStripWS($aParts[0], $STR_STRIPLEADING + $STR_STRIPTRAILING)
+            $sValue = StringStripWS($aParts[1], $STR_STRIPLEADING + $STR_STRIPTRAILING)
+
+            If Not $oNew.Exists($sCurrentSection) Then
+               $oNew.Item($sCurrentSection) = ObjCreate("Scripting.Dictionary")
+            EndIf
+
+            $oNew.Item($sCurrentSection).Item($sKey) = $sLine ; Save complete line
+            _Log("New key: [" & $sCurrentSection & "] " & $sKey)
+         EndIf
+      EndIf
+   Next
+
+   ; Compare and merge configurations
+   _Log("Comparing configurations...")
+   Local $aChanges[0]
+
+   For $sSection In $oNew.Keys()
+      _Log("Processing section: [" & $sSection & "]")
+
+      ; If section doesn't exist in current, add it
+      If Not $oCurrent.Exists($sSection) Then
+         _Log("New section detected, adding...")
+         $oCurrent.Item($sSection) = ObjCreate("Scripting.Dictionary")
+         $oCurrentSections.Item($sSection) = $oNewSections.Item($sSection)
+         $bChangesFound = True
+         ReDim $aChanges[UBound($aChanges) + 1]
+         $aChanges[UBound($aChanges) - 1] = "New section: [" & $sSection & "]"
+      EndIf
+
+      ; Check each key in the section
+      For $sKey In $oNew.Item($sSection).Keys()
+         _Log("Checking key: " & $sKey)
+
+         ; If key doesn't exist in current, add it
+         If Not $oCurrent.Item($sSection).Exists($sKey) Then
+            _Log("New key detected, adding: " & $sKey)
+            $oCurrent.Item($sSection).Item($sKey) = $oNew.Item($sSection).Item($sKey)
+            $bChangesFound = True
+            ReDim $aChanges[UBound($aChanges) + 1]
+            $aChanges[UBound($aChanges) - 1] = "New key: [" & $sSection & "] " & $sKey
+         Else
+            _Log("Existing key, keeping: " & $sKey)
+         EndIf
+      Next
+   Next
+
+   If Not $bChangesFound Then
+      _Log("No changes found between files")
+      ; Release objects before returning
+      $oCurrent = 0
+      $oNew = 0
+      $oCurrentSections = 0
+      $oNewSections = 0
+
+      Return True
+   EndIf
+
+   ; Show detected changes
+   _Log("Detected changes (" & UBound($aChanges) & "):")
+   For $i = 0 To UBound($aChanges) - 1
+      _Log("  " & ($i + 1) & ". " & $aChanges[$i])
+   Next
+
+   ; Rebuild file maintaining original format
+   _Log("Rebuilding file...")
+
+   $sMergedContent = ""
+
+   ; For language files, maintain original content and add new keys at the end
+   If $bIsLangFile Then
+      $sMergedContent = $oCurrent.Item("__original_content__") & @CRLF
+
+      ; Add new keys that weren't in the original
+      For $sSection In $oCurrent.Keys()
+         If $sSection = "__original_content__" Then ContinueLoop
+
+         For $sKey In $oCurrent.Item($sSection).Keys()
+            ; Check if key already existed in original
+            $bExists = StringInStr($oCurrent.Item("__original_content__"), $sKey & " =") > 0
+            If Not $bExists Then
+               $sMergedContent &= $oCurrent.Item($sSection).Item($sKey) & @CRLF
+            EndIf
+         Next
+      Next
+   Else
+      ; For configuration files, rebuild completely
+      For $sSection In $oCurrentSections.Keys()
+         $sMergedContent &= $oCurrentSections.Item($sSection) & @CRLF
+
+         For $sKey In $oCurrent.Item($sSection).Keys()
+            $sMergedContent &= $oCurrent.Item($sSection).Item($sKey) & @CRLF
+         Next
+
+         $sMergedContent &= @CRLF
+      Next
+   EndIf
+
+   ; Save changes
+   _Log("Saving changes to: " & $sOldFilePath)
+   $hFile = FileOpen($sOldFilePath, $FO_OVERWRITE + $FO_UTF8_NOBOM)
+   If $hFile = -1 Then
+      _Log("Error: Could not open file for writing")
+      ; Release objects before returning
+      $oCurrent = 0
+      $oNew = 0
+      $oCurrentSections = 0
+      $oNewSections = 0
+
+      Return False
+   EndIf
+
+   FileWrite($hFile, StringStripWS($sMergedContent, $STR_STRIPTRAILING))
+   FileClose($hFile)
+
+   _Log("File updated successfully")
+   _Log("=== UPDATE COMPLETED ===")
+
+   ; Release objects before returning
+   $oCurrent = 0
+   $oNew = 0
+   $oCurrentSections = 0
+   $oNewSections = 0
+
+   Return True
 EndFunc
