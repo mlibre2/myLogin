@@ -529,7 +529,9 @@ jobs:
           
           ## :inbox_tray: Downloads
           
-          [![GitHub release (by tag)](https://img.shields.io/github/downloads/${context.repo.owner}/${context.repo.repo}/${process.env.NEW_VERSION}/total?style=for-the-badge)](https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}_Setup.exe)
+          [![GitHub Downloads (specific asset, specific tag)](https://img.shields.io/github/downloads/${context.repo.owner}/${context.repo.repo}/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}_Portable.zip?style=for-the-badge&label=portable)](https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}_Portable.zip)
+
+          [![GitHub Downloads (specific asset, specific tag)](https://img.shields.io/github/downloads/${context.repo.owner}/${context.repo.repo}/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}_Setup.exe?style=for-the-badge&label=installer)](https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}_Setup.exe)
           `;
           
           // Update release
