@@ -36,8 +36,10 @@ Usa tu Hash para iniciar el programa:
    - Si no has generado un hash, no podrás acceder al programa, ya que es necesario para desbloquearlo.
    - La contraseña que debes usar para desbloquearlo, es la original (la que ingresaste al crear el hash), no el hash cifrado.
 
+  Consulta también esta nueva función: [``config.ini``](https://github.com/mlibre2/myLoginCompile/blob/main/README/es.md#%EF%B8%8F-archivo-configini)
+
 > [!NOTE]
-> ⚙️ Los siguientes parámetros son opcionales, no son requeridos.
+> 🔧 Los siguientes parámetros son opcionales, no son requeridos.
   
 
 - ``/DisableExplorer`` ó ``/de``
@@ -73,6 +75,7 @@ Ejemplo con todas las opciones:
 
   ``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dp /dr /dl /st 1 /au``
 
+## ⚙️ Archivo [``config.ini``](https://github.com/mlibre2/myLogin/blob/main/src/config.ini)
 > [!WARNING]
 > Desde la versión 3.0, se añadió una función para leer los parámetros desde un archivo llamado ``config.ini``. Este archivo te permite configurar los ajustes de forma más fácil y cómoda, evitando tener que introducirlos manualmente por la línea de comandos.
 > - Opcionalidad:
@@ -101,7 +104,7 @@ Desde la version [3.0](https://github.com/mlibre2/myLogin/releases/tag/3.0), se 
 
 Dirígete a la sección [Releases](https://github.com/mlibre2/myLogin/releases) donde estarán disponibles las últimas versiones compiladas.
 
-## ⚙️ ¿Cómo lo configuro para que inicie de forma automática?
+## ⛓️ ¿Cómo lo configuro para que inicie de forma automática?
 ### Métodos recomendados:
 
 Tienes varios métodos de cómo ``auto-ejecutarlo``, elije una de ellas:
