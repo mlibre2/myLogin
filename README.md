@@ -35,7 +35,7 @@ This hash is the password you entered earlier in plain text but encrypted.
 - If you haven't generated a hash, you won't be able to access the program, as it is required to unlock it.
 - The password you must use to unlock it is the original one (the one you entered when creating the hash), not the encrypted hash.
 
-Also check out this new feature: [``config.ini``](https://github.com/mlibre2/myLogin/blob/main/README.md#%EF%B8%8F-archive-configini)
+Also check out this new feature: [``config.ini``](https://github.com/mlibre2/myLogin/tree/main#%EF%B8%8F-archive-configini)
 
 > [!NOTE]
 > 🔧 The following parameters are optional; they are not required.
