@@ -36,7 +36,7 @@ Usa tu Hash para iniciar el programa:
    - Si no has generado un hash, no podrás acceder al programa, ya que es necesario para desbloquearlo.
    - La contraseña que debes usar para desbloquearlo, es la original (la que ingresaste al crear el hash), no el hash cifrado.
 
-  Consulta también esta nueva función: [``config.ini``](https://github.com/mlibre2/myLoginCompile/blob/main/README/es.md#%EF%B8%8F-archivo-configini)
+  Consulta también esta nueva función: [``config.ini``](https://github.com/mlibre2/myLogin/blob/main/README/es.md#%EF%B8%8F-archivo-configini)
 
 > [!NOTE]
 > 🔧 Los siguientes parámetros son opcionales, no son requeridos.
