@@ -9,7 +9,7 @@ on:
 permissions:
   issues: write
   pull-requests: write
-  contents: read
+  contents: write  # Added write permission for branch deletion
 
 jobs:
   get_events:
@@ -105,3 +105,19 @@ jobs:
               issue_number: item.number,
               body: messages[payload.action]
             });
+
+            // Delete branch if PR was merged
+            if (isPR && payload.action === 'closed' && item.merged && item.head && item.head.ref) {
+              try {
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `heads/${item.head.ref}`
+                });
+                console.log(`Successfully deleted branch ${item.head.ref}`);
+              } catch (error) {
+                if (error.status !== 422) { // Ignore "Reference does not exist" errors
+                  core.error(`Failed to delete branch: ${error}`);
+                }
+              }
+            }
