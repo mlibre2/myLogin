@@ -75,11 +75,35 @@ Example with all options:
 
 ``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dp /dr /dl /st 1 /au``
 
+> [!WARNING]
+> Since version 3.0, a function has been added to read parameters from a file called ``config.ini``. This file allows you to configure settings more easily and conveniently, avoiding having to enter them manually via the command line.
+> - Optional:
+> If you prefer, you can continue using parameters via the command line without any problem, ignoring this file.
+> - The file structure is as follows:
+```
+[config]
+PassHash = 
+DisableExplorer = True
+DisablePowerOff = False
+DisableReboot = False
+DisableLockSession = False
+Style = 0
+AutoUpdater = False
+DisableBlur = False
+```
+## 🔌 ¿How to install it?
+
+You have two options:
+- Portable
+- Inno Setup
+
+Since version [3.0](https://github.com/mlibre2/myLogin/releases/tag/3.0), a simpler installation system has been included, supporting both manual and unattended modes. You can use these [parameters](https://jrsoftware.org/ishelp/index.php?topic=setupcmdline) to install the program quickly and quietly. It also features a multilingual interface.
+
 ## 📥 How do I download it?
 
 Go to the [Releases](https://github.com/mlibre2/myLogin/releases) section where the latest compiled versions will be available.
 
-## 🔌 How do I install/configure it to start automatically?
+## ⚙️ How do configure it to start automatically?
 ### Recommended methods:
 
 You have several methods to ``auto-run``, choose one of them:
@@ -138,7 +162,7 @@ You can use the [CMD](https://github.com/mlibre2/myLogin/blob/main/compile_manua
 
 ## :earth_americas: How do I add more languages?
 
-Starting with version [1.5](https://github.com/mlibre2/myLogin/releases/tag/1.5), you can help add support for languages not yet available. The files are located in the folder [lang/](https://github.com/mlibre2/myLogin/tree/main/lang)
+Starting with version [1.5](https://github.com/mlibre2/myLogin/releases/tag/1.5), you can help add support for languages not yet available. The files are located in the folder [lang/](https://github.com/mlibre2/myLogin/tree/main/src/lang)
 
 ## :building_construction: Can I help with its development?
 
