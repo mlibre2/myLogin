@@ -73,11 +73,35 @@ Ejemplo con todas las opciones:
 
   ``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dp /dr /dl /st 1 /au``
 
+> [!WARNING]
+> Desde la versión 3.0, se añadió una función para leer los parámetros desde un archivo llamado ``config.ini``. Este archivo te permite configurar los ajustes de forma más fácil y cómoda, evitando tener que introducirlos manualmente por la línea de comandos.
+> - Opcionalidad:
+> Si prefieres, puedes seguir usando los parámetros por línea de comandos sin problema, ignorando este archivo.
+> - La estructura del archivo es la siguiente:
+```
+[config]
+PassHash = 
+DisableExplorer = True
+DisablePowerOff = False
+DisableReboot = False
+DisableLockSession = False
+Style = 0
+AutoUpdater = False
+DisableBlur = False
+```
+## 🔌 ¿Cómo lo instalo?
+
+Tienes dos opciones:
+- Portable
+- Inno Setup
+
+Desde la version [3.0](https://github.com/mlibre2/myLogin/releases/tag/3.0), se incluyó un sistema de instalación más sencillo, compatible con modos manual y desatendido. Puedes usar estos [parámetros](https://jrsoftware.org/ishelp/index.php?topic=setupcmdline) para instalar el programa de forma rápida y silenciosa. Además, cuenta con interfaz multilingüe.
+
 ## 📥 ¿Cómo lo descargo?
 
 Dirígete a la sección [Releases](https://github.com/mlibre2/myLogin/releases) donde estarán disponibles las últimas versiones compiladas.
 
-## 🔌 ¿Cómo lo instalo/configuro para que inicie de forma automática?
+## ⚙️ ¿Cómo lo configuro para que inicie de forma automática?
 ### Métodos recomendados:
 
 Tienes varios métodos de cómo ``auto-ejecutarlo``, elije una de ellas:
@@ -138,7 +162,7 @@ Puedes hacer uso del archivo [CMD](https://github.com/mlibre2/myLogin/tree/main/
 
 ## :earth_americas: ¿Cómo añado más idiomas?
 
-A partir de la versión [1.5](https://github.com/mlibre2/myLogin/releases/tag/1.5), puedes ayudar a añadir soporte para idiomas que aún no estén disponibles. Los archivos se encuentran en la carpeta [lang/](https://github.com/mlibre2/myLogin/tree/main/lang)
+A partir de la versión [1.5](https://github.com/mlibre2/myLogin/releases/tag/1.5), puedes ayudar a añadir soporte para idiomas que aún no estén disponibles. Los archivos se encuentran en la carpeta [lang/](https://github.com/mlibre2/myLogin/tree/main/src/lang)
 
 ## :building_construction: ¿Puedo ayudar en su desarrollo?
 
