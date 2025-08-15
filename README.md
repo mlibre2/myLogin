@@ -35,8 +35,10 @@ This hash is the password you entered earlier in plain text but encrypted.
 - If you haven't generated a hash, you won't be able to access the program, as it is required to unlock it.
 - The password you must use to unlock it is the original one (the one you entered when creating the hash), not the encrypted hash.
 
+Also check out this new feature: [``config.ini``](https://github.com/mlibre2/myLogin/blob/main/README.md#%EF%B8%8F-archive-configini)
+
 > [!NOTE]
-> ⚙️ The following parameters are optional; they are not required.
+> 🔧 The following parameters are optional; they are not required.
 
 - ``/DisableExplorer`` or ``/de``
   
@@ -75,6 +77,7 @@ Example with all options:
 
 ``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dp /dr /dl /st 1 /au``
 
+## ⚙️ Archive [``config.ini``](https://github.com/mlibre2/myLogin/blob/main/src/config.ini)
 > [!WARNING]
 > Since version 3.0, a function has been added to read parameters from a file called ``config.ini``. This file allows you to configure settings more easily and conveniently, avoiding having to enter them manually via the command line.
 > - Optional:
@@ -103,7 +106,7 @@ Since version [3.0](https://github.com/mlibre2/myLogin/releases/tag/3.0), a simp
 
 Go to the [Releases](https://github.com/mlibre2/myLogin/releases) section where the latest compiled versions will be available.
 
-## ⚙️ How do configure it to start automatically?
+## ⛓️ How do configure it to start automatically?
 ### Recommended methods:
 
 You have several methods to ``auto-run``, choose one of them:
