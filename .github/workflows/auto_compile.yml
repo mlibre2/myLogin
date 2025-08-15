@@ -16,7 +16,7 @@ on:
 jobs:
   compile:
     runs-on: windows-2022 # Autoit tool does not support >=2025
-    timeout-minutes: 3    # Maximum compilation time
+    timeout-minutes: 5    # Maximum compilation time
     env:
       SCRIPT_NAME: myLogin
       SCRIPT_PATH: 'src\'
@@ -143,6 +143,132 @@ jobs:
         }
         echo "::notice::Compilation successful - Executable size: $((Get-Item $outputPath).Length) bytes"
 
+######################################################################### Inno Setup installer
+
+    - name: Create Inno Setup script
+      run: |
+        $issContent = @"
+        [Setup]
+        AppName=${{ env.SCRIPT_NAME }}
+        AppVersion=${{ env.NEW_VERSION }}
+        VersionInfoVersion=${{ env.NEW_VERSION }}.0.0
+        AppVerName=${{ env.SCRIPT_NAME }} v${{ env.NEW_VERSION }}
+        AppComments=${{ env.SCRIPT_NAME }} - Inno Setup
+        AppCopyright=© by mlibre2 - Open source project on GitHub
+        DefaultDirName={autopf}\${{ env.SCRIPT_NAME }}
+        DefaultGroupName=${{ env.SCRIPT_NAME }}
+        AppPublisher=GitHub@mlibre2
+        AppPublisherURL=https://github.com/${{ github.repository }}/
+        AppReadmeFile=https://github.com/${{ github.repository }}/blob/main/README.md
+        AppSupportURL=https://github.com/${{ github.repository }}/issues
+        AppUpdatesURL=https://github.com/${{ github.repository }}/releases
+        DisableWelcomePage=no
+        DisableProgramGroupPage=yes
+        OutputDir=.
+        OutputBaseFilename=${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup
+        SolidCompression=yes
+        SetupIconFile=C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico
+        ShowLanguageDialog=yes
+
+        [Languages]
+        Name: "en"; MessagesFile: "compiler:Default.isl"
+        Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl"
+
+        [Tasks]
+        Name: desktopicon; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+        
+        [Dirs]
+        Name: "{app}"; Permissions: users-modify
+        
+        [Files]
+        Source: "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_NAME }}.exe"; DestDir: "{app}"; Flags: ignoreversion
+        Source: "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}config.ini"; DestDir: "{app}"; Flags: onlyifdoesntexist
+        Source: "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}lang\*"; DestDir: "{app}\lang"; Flags: recursesubdirs onlyifdoesntexist
+
+        ; Temporary files for upgrade (only copied if it is an upgrade)
+        Source: "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}config.ini"; DestDir: "{app}\myLoginUpdate"; Flags: ignoreversion; Check: IsUpgrade
+        Source: "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}lang\*"; DestDir: "{app}\myLoginUpdate\lang"; Flags: ignoreversion recursesubdirs; Check: IsUpgrade
+
+        [Icons]
+        Name: "{commondesktop}\${{ env.SCRIPT_NAME }}"; Filename: "{app}\${{ env.SCRIPT_NAME }}.exe"; Comment: "${{ env.SCRIPT_NAME }}"; Tasks: desktopicon
+        
+        [Run]
+        Filename: "{app}\${{ env.SCRIPT_NAME }}.exe"; Flags: postinstall nowait skipifsilent
+        
+        [UninstallRun]
+        Filename: "{app}\${{ env.SCRIPT_NAME }}.exe"; Parameters: "/uninstall"; RunOnceId: "${{ env.SCRIPT_NAME }}Uninstaller"
+        
+        [Code]
+        var
+          IsUpgradeMode: Boolean;
+
+        function InitializeSetup(): Boolean;
+        begin
+          IsUpgradeMode := RegKeyExists(HKLM, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\${{ env.SCRIPT_NAME }}_is1');
+          Result := True;
+        end;
+        
+        function IsUpgrade: Boolean;
+        begin
+          Result := IsUpgradeMode;
+        end;
+
+        procedure CurStepChanged(CurStep: TSetupStep);
+        var
+          ResultCode: Integer;
+          FindRec: TFindRec;
+          LangPath: String;
+          TmpLangPath: String;
+        begin
+          if (CurStep = ssPostInstall) and IsUpgrade then
+          begin
+            // Only run if temporary files exist
+            if FileExists(ExpandConstant('{app}\myLoginUpdate\config.ini')) then
+            begin
+              Exec(
+                ExpandConstant('{app}\${{ env.SCRIPT_NAME }}.exe'),
+                '/uc "' + ExpandConstant('{app}\myLoginUpdate\config.ini') + '" "' + 
+                ExpandConstant('{app}\config.ini') + '"',
+                '', SW_HIDE, ewWaitUntilTerminated, ResultCode
+              );
+            end;
+            
+            if DirExists(ExpandConstant('{app}\myLoginUpdate\lang')) then
+            begin
+              LangPath := ExpandConstant('{app}\lang\');
+              TmpLangPath := ExpandConstant('{app}\myLoginUpdate\lang\');
+              
+              // Process each .txt file in the temporary lang directory
+              if FindFirst(TmpLangPath + '*.txt', FindRec) then
+              begin
+                try
+                  repeat
+                    if (FindRec.Name <> '.') and (FindRec.Name <> '..') then
+                    begin
+                      Exec(
+                        ExpandConstant('{app}\${{ env.SCRIPT_NAME }}.exe'),
+                        '/uc "' + TmpLangPath + FindRec.Name + '" "' + 
+                        LangPath + FindRec.Name + '"',
+                        '', SW_HIDE, ewWaitUntilTerminated, ResultCode
+                      );
+                    end;
+                  until not FindNext(FindRec);
+                finally
+                  FindClose(FindRec);
+                end;
+              end;
+            end;
+          end;
+        end;
+        "@
+        Set-Content -Path "$env:GITHUB_WORKSPACE\setup.iss" -Value $issContent
+
+    - name: Compile Inno Setup installer
+      uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+      with:
+        path: setup.iss
+        options: /Q
+
 ######################################################################### SignPath signature
 
     - name: Sign executable with SignPath
@@ -154,7 +280,7 @@ jobs:
         }
         Import-Module SignPath
         
-        # Send signature request
+        # Send signature request EXE
         try {
           Submit-SigningRequest `
             -InputArtifactPath "${{ env.SCRIPT_NAME }}.exe" `
@@ -172,10 +298,29 @@ jobs:
           echo "::error::Failed to sign executable: $_"
           exit 1
         }
+
+        # Send signature request SETUP
+        try {
+          Submit-SigningRequest `
+            -InputArtifactPath "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe" `
+            -ApiToken "${{ secrets.SIGNPATH_TOKEN }}" `
+            -OrganizationId "${{ secrets.SIGNPATH_ORG_ID }}" `
+            -ProjectSlug "${{ env.SCRIPT_NAME }}" `
+            -SigningPolicySlug "${{ env.SCRIPT_NAME }}" `
+            -OutputArtifactPath "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.signed.exe" `
+            -WaitForCompletion
+
+          # Replace the unsigned executable with the signed one
+          Move-Item -Path "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.signed.exe" -Destination "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe" -Force
+          echo "::notice::Setup signed successfully"
+        } catch {
+          echo "::error::Failed to sign setup: $_"
+          exit 1
+        }
         
 ######################################################################### GPG signature
 
-    - name: Sign executable with GPG
+    - name: Sign setup with GPG
       run: |
         # Import private key
         echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
@@ -184,11 +329,11 @@ jobs:
         gpg --batch --yes --pinentry-mode loopback `
           --passphrase "${{ secrets.GPG_PASSPHRASE }}" `
           --local-user "${{ secrets.GPG_KEY_ID }}" `
-          --output "${{ env.SCRIPT_NAME }}.exe.sig" `
-          --detach-sig "${{ env.SCRIPT_NAME }}.exe"
+          --output "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe.sig" `
+          --detach-sig "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe"
         
         # Verify the signature
-        gpg --verify "${{ env.SCRIPT_NAME }}.exe.sig" "${{ env.SCRIPT_NAME }}.exe"
+        gpg --verify "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe.sig" "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe"
         
         if ($LASTEXITCODE -ne 0) {
           echo "::error::GPG signature verification failed"
@@ -197,18 +342,19 @@ jobs:
         
 ######################################################################### compress files
 
-    - name: Create ZIP for releases
-      run: 7z a -tzip -bd -mx=9 "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}.zip" "${{ env.SCRIPT_NAME }}.exe" "lang"
+    - name: Create ZIP Portable
+      run: 7z a -tzip -bd -mx=9 "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Portable.zip" "${{ env.SCRIPT_NAME }}.exe" "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}config.ini" "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}lang"
       
 ######################################################################### compress files (optional)
 
     #- name: Upload artifact
     #  uses: actions/upload-artifact@v4
     #  with:
-    #    name: ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}
+    #    name: ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Portable
     #    path: |
     #      ${{ env.SCRIPT_NAME }}.exe
-    #      lang/*.ini
+    #      $env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}config.ini
+    #      $env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}lang/*.txt
 
 ######################################################################### config. git/gpg/commit/tag
 
@@ -245,15 +391,16 @@ jobs:
       with:
         tag_name: ${{ env.NEW_VERSION }}
         files: |
-          ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}.zip
-          ${{ env.SCRIPT_NAME }}.exe.sig
+          ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Portable.zip
+          ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe
+          ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe.sig
 
 ######################################################################### virustotal
 
     - name: Analyze URL with VirusTotal
       if: env.ENABLE_VIRUSTOTAL == 'true'
       run: |
-        $ZIP_URL = "https://github.com/${{ github.repository }}/releases/download/${{ env.NEW_VERSION }}/${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}.zip"
+        $SETUP_URL = "https://github.com/${{ github.repository }}/releases/download/${{ env.NEW_VERSION }}/${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe"
         
         # Headers API v3
         $headers = @{
@@ -264,7 +411,7 @@ jobs:
         
         try {
           # Correctly encode the URL for the request body
-          $encodedUrl = [System.Web.HttpUtility]::UrlEncode($ZIP_URL)
+          $encodedUrl = [System.Web.HttpUtility]::UrlEncode($SETUP_URL)
           $postParams = "url=$encodedUrl"
           
           # Send POST request
@@ -373,7 +520,7 @@ jobs:
           
           ## :inbox_tray: Downloads
           
-          [![GitHub release (by tag)](https://img.shields.io/github/downloads/${context.repo.owner}/${context.repo.repo}/${process.env.NEW_VERSION}/total?style=for-the-badge)](https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}.zip)
+          [![GitHub release (by tag)](https://img.shields.io/github/downloads/${context.repo.owner}/${context.repo.repo}/${process.env.NEW_VERSION}/total?style=for-the-badge)](https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}_Setup.exe)
           `;
           
           // Update release
