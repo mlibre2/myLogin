@@ -30,9 +30,7 @@ jobs:
       with:
         token: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
         # Download only the necessary files
-        sparse-checkout: |
-          src/
-          lang/
+        sparse-checkout: src/
         # no requerid
         ssh-strict: false
         show-progress: false
@@ -142,6 +140,36 @@ jobs:
           exit 1
         }
         echo "::notice::Compilation successful - Executable size: $((Get-Item $outputPath).Length) bytes"
+
+######################################################################### SignPath executable
+
+    - name: Sign executable with SignPath
+      if: env.ENABLE_SIGNPATH == 'true'
+      run: |
+        # Install the SignPath PowerShell module if it is not present
+        if (-not (Get-Module -ListAvailable -Name SignPath)) {
+          Install-Module -Name SignPath -Force -Scope CurrentUser -AllowClobber
+        }
+        Import-Module SignPath
+        
+        # Send signature request EXE
+        try {
+          Submit-SigningRequest `
+            -InputArtifactPath "${{ env.SCRIPT_NAME }}.exe" `
+            -ApiToken "${{ secrets.SIGNPATH_TOKEN }}" `
+            -OrganizationId "${{ secrets.SIGNPATH_ORG_ID }}" `
+            -ProjectSlug "${{ env.SCRIPT_NAME }}" `
+            -SigningPolicySlug "${{ env.SCRIPT_NAME }}" `
+            -OutputArtifactPath "${{ env.SCRIPT_NAME }}.signed.exe" `
+            -WaitForCompletion
+
+          # Replace the unsigned executable with the signed one
+          Move-Item -Path "${{ env.SCRIPT_NAME }}.signed.exe" -Destination "${{ env.SCRIPT_NAME }}.exe" -Force
+          echo "::notice::Executable signed successfully"
+        } catch {
+          echo "::error::Failed to sign executable: $_"
+          exit 1
+        }
 
 ######################################################################### Inno Setup installer
 
@@ -269,9 +297,9 @@ jobs:
         path: setup.iss
         options: /Q
 
-######################################################################### SignPath signature
+######################################################################### SignPath setup
 
-    - name: Sign executable with SignPath
+    - name: Sign setup with SignPath
       if: env.ENABLE_SIGNPATH == 'true'
       run: |
         # Install the SignPath PowerShell module if it is not present
@@ -280,25 +308,6 @@ jobs:
         }
         Import-Module SignPath
         
-        # Send signature request EXE
-        try {
-          Submit-SigningRequest `
-            -InputArtifactPath "${{ env.SCRIPT_NAME }}.exe" `
-            -ApiToken "${{ secrets.SIGNPATH_TOKEN }}" `
-            -OrganizationId "${{ secrets.SIGNPATH_ORG_ID }}" `
-            -ProjectSlug "${{ env.SCRIPT_NAME }}" `
-            -SigningPolicySlug "${{ env.SCRIPT_NAME }}" `
-            -OutputArtifactPath "${{ env.SCRIPT_NAME }}.signed.exe" `
-            -WaitForCompletion
-
-          # Replace the unsigned executable with the signed one
-          Move-Item -Path "${{ env.SCRIPT_NAME }}.signed.exe" -Destination "${{ env.SCRIPT_NAME }}.exe" -Force
-          echo "::notice::Executable signed successfully"
-        } catch {
-          echo "::error::Failed to sign executable: $_"
-          exit 1
-        }
-
         # Send signature request SETUP
         try {
           Submit-SigningRequest `
