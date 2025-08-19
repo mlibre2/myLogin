@@ -4,11 +4,11 @@
 #pragma compile(Compression, 0)
 #pragma compile(CompanyName, 'mlibre2')
 #pragma compile(FileDescription, Secure lock screen)
-#pragma compile(FileVersion, 3.0)					; auto-incremental by workflows (compile)
+#pragma compile(FileVersion, 3.1)					; auto-incremental by workflows (compile)
 #pragma compile(LegalCopyright, © by mlibre2 - Open source project on GitHub)
 #pragma compile(OriginalFilename, myLogin.exe)
 #pragma compile(ProductName, myLogin)
-#pragma compile(ProductVersion, 3.0)				; auto-incremental by workflows (compile)
+#pragma compile(ProductVersion, 3.1)				; auto-incremental by workflows (compile)
 
 #NoTrayIcon							; Will not be shown when the script starts
 
@@ -27,7 +27,7 @@
 #include <WinAPI.au3>				; Required _chkExplorer...
 
 ; configuration
-Const $g_sVersion = "3.0"								; auto-incremental by workflows (compile)
+Const $g_sVersion = "3.1"								; auto-incremental by workflows (compile)
 $g_sPassHash = ""
 Const $g_iTransparencyGUI = 150							; 0-255 (transparent-opaque) fullscreen
 Const $g_iTransparencyPassGUI = 180						; 0-255 (transparent-opaque) for window
