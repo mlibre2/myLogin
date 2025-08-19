@@ -292,7 +292,7 @@ jobs:
         Set-Content -Path "$env:GITHUB_WORKSPACE\setup.iss" -Value $issContent
 
     - name: Compile Inno Setup installer
-      uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+      uses: Minionguyjpro/Inno-Setup-Action@v1.2.6
       with:
         path: setup.iss
         options: /Q
