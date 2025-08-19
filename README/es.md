@@ -165,7 +165,7 @@ Puedes hacer uso del archivo [CMD](https://github.com/mlibre2/myLogin/tree/main/
 
 ## :earth_americas: ¿Cómo añado más idiomas?
 
-A partir de la versión [1.5](https://github.com/mlibre2/myLogin/releases/tag/1.5), puedes ayudar a añadir soporte para idiomas que aún no estén disponibles. Los archivos se encuentran en la carpeta [lang/](https://github.com/mlibre2/myLogin/tree/main/src/lang)
+A partir de la versión [1.5](https://github.com/mlibre2/myLogin/releases/tag/1.5), puedes contribuir a añadir compatibilidad con idiomas que aún no están disponibles. Los archivos se encuentran en la carpeta [lang/](https://github.com/mlibre2/myLogin/tree/main/src/lang). Esta es la [lista](https://www.autoitscript.com/autoit3/docs/appendix/OSLangCodes.htm) de idiomas compatibles; actualmente, solo se cargan **inglés=EN** y **español=ES**.
 
 ## :building_construction: ¿Puedo ayudar en su desarrollo?
 
