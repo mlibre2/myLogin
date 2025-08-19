@@ -77,7 +77,7 @@ Example with all options:
 
 ``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dp /dr /dl /st 1 /au``
 
-## ⚙️ Archive [``config.ini``](https://github.com/mlibre2/myLogin/blob/main/src/config.ini)
+## ⚙️ Archive [``config.ini``](https://github.com/mlibre2/myLogin/tree/main#%EF%B8%8F-archive-configini)
 > [!WARNING]
 > Since version 3.0, a function has been added to read parameters from a file called ``config.ini``. This file allows you to configure settings more easily and conveniently, avoiding having to enter them manually via the command line.
 > - Optional:
