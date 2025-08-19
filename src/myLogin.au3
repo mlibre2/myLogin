@@ -471,7 +471,7 @@ Func _LoadLanguage()
    FileClose($hFile)
 
    ; Validate TXT/INI file content
-   If StringLeft($sContent, 4) <> "[" & $g_sLanguage & "]" Or Not StringRegExp($sContent, "(?:\r\n|\n|\A)\w+\s*=") Then
+   If $sContent = "" Or StringLeft($sContent, 4) <> "[" & $g_sLanguage & "]" Or Not StringRegExp($sContent, "(?:\r\n|\n|\A)\w+\s*=") Then
 	  If $g_bDisableExplorer Then _chkExplorer(False)
 
 	  MsgBox($MB_ICONERROR, "Error", "Invalid language file format")
@@ -654,6 +654,10 @@ Func _EnableBlur($hGUI)
 
    $aRet = DllCall("user32.dll", "int", "SetWindowCompositionAttribute", "hwnd", $hGUI, "ptr", DllStructGetPtr($tWindowCompositionAttributeData))
 
+   ; Release structures immediately after use
+   $tAccentPolicy = 0
+   $tWindowCompositionAttributeData = 0
+
    If @error Or Not $aRet[0] Then Return False
 
    Return True
@@ -675,19 +679,15 @@ Func _chkUpdatesAsync()
 EndFunc
 
 Func _chkUpdates()
-   Static $iReview, $sUpdateTempDir, $sFileExt, $bPortable
+   Static $iReview, $sUpdateTempDir, $sFileExt, $bPortable = Not FileExists(@ScriptDir & "\unins000.exe")
 
    $iReview += 1
-
-   ; We assume it is the portable version
-   If $iReview = 1 And Not FileExists(@ScriptDir & "\unins000.exe") Then $bPortable = True
 
    ; Handle file replacement if this is the second call
    If $iReview > 1 Then
 
 	  ; we check if it is the portable version
-	  $sExeNew = @ScriptName & ".new"
-      If $bPortable And FileExists($sExeNew) Then Exit Run("cmd /c ping -n 1 localhost >nul & move /y " & $sExeNew & " " & @ScriptName, "", @SW_HIDE)
+      If $bPortable And FileExists(@ScriptName & ".new") Then Exit Run("cmd /c ping -n 1 localhost >nul & move /y " & @ScriptName & ".new " & @ScriptName, "", @SW_HIDE)
 
 	  ; Or setup installer
 	  If Not $bPortable And FileExists($sFileExt) Then Exit Run("cmd /c ping -n 1 localhost >nul & start """" """ & $sFileExt & """ /silent", "", @SW_HIDE)
@@ -855,7 +855,7 @@ Func _chkUpdates()
 
    _Log(_getLang("UPDATE_PREPARED"))
 
-   MsgBox(BitOR($MB_ICONINFORMATION, $MB_TOPMOST), _getLang("MSG1_DOWNLOADED", $g_sName, $sLatestVersion), _getLang("MSG2_DOWNLOADED"), 3)
+   MsgBox($MB_ICONINFORMATION + $MB_TOPMOST, _getLang("MSG1_DOWNLOADED", $g_sName, $sLatestVersion), _getLang("MSG2_DOWNLOADED"), 3)
 EndFunc
 
 ; Helper functions
@@ -889,11 +889,11 @@ Func _Log($sMessage)
 
    Static $iFileSize = -1
 
-   ; Truncate file if it exceeds (100 MB = 104857600 bytes)
+   ; Truncate file if it exceeds (50 MB = 52428800 bytes)
    If $iFileSize = -1 And FileExists($sLogPath) Then
 	  $iFileSize = FileGetSize($sLogPath)
 
-	  If $iFileSize >= 104857600 Then	; automatic rotation
+	  If $iFileSize >= 52428800 Then	; automatic rotation
 
 		 Local $aLines = FileReadToArray($sLogPath)
 		 If Not @error Then
@@ -955,13 +955,15 @@ Func _Uninstall()
    If $bUninsExists Then
 	  Run($sUninsPath & " /silent /suppressmsgboxes", "", @SW_HIDE)
    Else
+	  Run("cmd /c mode con cols=80 lines=5 & color 3f & title Uninstaller & echo. & echo. " & _getLang("UNINSTALL_IN_PROGRESS", $g_sName) & " & echo. & ping -n 4 localhost >nul & echo. 100% & ping -n 2 localhost >nul")
+
 	  Run('cmd /c ping -n 1 localhost >nul & rd /s /q "' & @ScriptDir & '"', "", @SW_HIDE)
    EndIf
 
    Exit
 EndFunc
 
-Func _ProcessConfig($bValue)
+Func _ProcessConfig($bChk)
    $sIniFile = @ScriptDir & "\config.ini"
 
    If Not FileExists($sIniFile) Then
@@ -984,7 +986,7 @@ Func _ProcessConfig($bValue)
 	  $g_sPassHash = IniRead($sIniFile, "Config", "PassHash", $g_sPassHash)
 
 	  ; again chk
-	  If $bValue And $g_sPassHash = "" Then
+	  If $bChk And $g_sPassHash = "" Then
 
 		 If $g_bDisableExplorer Then _chkExplorer(False)
 
@@ -999,7 +1001,7 @@ Func _ProcessConfig($bValue)
 	  EndIf
 
 	  ; Hash validation
-	  If $bValue And StringLen($g_sPassHash) <> 34 Or $bValue And StringLeft($g_sPassHash, 2) <> "0x" Then
+	  If $bChk And StringLen($g_sPassHash) <> 34 Or $bChk And StringLeft($g_sPassHash, 2) <> "0x" Then
 
 		 If $g_bDisableExplorer Then _chkExplorer(False)
 
@@ -1008,7 +1010,7 @@ Func _ProcessConfig($bValue)
 	  EndIf
    EndIf
 
-   If Not $bValue Then Return ; It is only used to uninstall, we are not interested in the other values, just the hash.
+   If Not $bChk Then Return ; It is only used to uninstall, we are not interested in the other values, just the hash.
 
    If $g_aCache[$Style] = $g_iStyle Then
 	  $g_iStyle = Number(IniRead($sIniFile, "Config", "Style", $g_iStyle))
@@ -1080,177 +1082,145 @@ Func _UpdateConfig($sNewFilePath, $sOldFilePath)
       Return False
    EndIf
 
-   ; Process both files
-   $oCurrent = ObjCreate("Scripting.Dictionary")
-   $oNew = ObjCreate("Scripting.Dictionary")
-   $oCurrentSections = ObjCreate("Scripting.Dictionary") ; To maintain sections
-   $oNewSections = ObjCreate("Scripting.Dictionary")    ; To maintain sections
+   ; Create dictionaries to store settings
+   $oCurrentSettings = ObjCreate("Scripting.Dictionary")
+   $oNewSettings = ObjCreate("Scripting.Dictionary")
+   $oOriginalFormats = ObjCreate("Scripting.Dictionary") ; To maintain the exact format
+   $oAllSections = ObjCreate("Scripting.Dictionary")
    $bChangesFound = False
+   Local $aAddedKeys[0]
+   Local $aRemovedKeys[0]
 
-   ; Process current file
-   _Log("Processing current file...")
+   ; Process current file to get existing settings and exact formats
+   _Log("Processing current settings and formats...")
    $aLines = StringSplit(StringStripCR($sCurrentContent), @LF)
-   $sCurrentSection = $bIsLangFile ? $g_sLanguage : "config" ; Default section
-
-   ; For language files, save all original content
-   If $bIsLangFile Then
-      $oCurrent.Item("__original_content__") = $sCurrentContent
-   EndIf
+   $sCurrentSection = $bIsLangFile ? $g_sLanguage : "config"
 
    For $i = 1 To $aLines[0]
-      $sLine = StringStripWS($aLines[$i], $STR_STRIPLEADING + $STR_STRIPTRAILING)
+      $sLine = $aLines[$i]
+      $sTrimmedLine = StringStripWS($sLine, $STR_STRIPLEADING + $STR_STRIPTRAILING)
 
-      ; Ignore empty lines or comments (except in language files)
-      If $sLine = "" Or (Not $bIsLangFile And StringLeft($sLine, 1) = ";") Then ContinueLoop
-
-      ; Check section
-      If StringLeft($sLine, 1) = "[" And StringRight($sLine, 1) = "]" Then
-         $sCurrentSection = StringMid($sLine, 2, StringLen($sLine) - 2)
-         If Not $oCurrent.Exists($sCurrentSection) Then
-            $oCurrent.Item($sCurrentSection) = ObjCreate("Scripting.Dictionary")
-            $oCurrentSections.Item($sCurrentSection) = $sLine ; Save exact line
-         EndIf
+      ; Handle sections
+      If StringLeft($sTrimmedLine, 1) = "[" And StringRight($sTrimmedLine, 1) = "]" Then
+         $sCurrentSection = StringMid($sTrimmedLine, 2, StringLen($sTrimmedLine) - 2)
          ContinueLoop
       EndIf
 
-      ; Process key=value
-      If StringInStr($sLine, "=") > 0 Then
-         $aParts = StringSplit($sLine, "=", $STR_NOCOUNT)
+      ; Handle key=value pairs
+      If StringInStr($sTrimmedLine, "=") > 0 Then
+         $aParts = StringSplit($sTrimmedLine, "=", $STR_NOCOUNT)
          If UBound($aParts) >= 2 Then
             $sKey = StringStripWS($aParts[0], $STR_STRIPLEADING + $STR_STRIPTRAILING)
-            $sValue = StringStripWS($aParts[1], $STR_STRIPLEADING + $STR_STRIPTRAILING)
 
-            If Not $oCurrent.Exists($sCurrentSection) Then
-               $oCurrent.Item($sCurrentSection) = ObjCreate("Scripting.Dictionary")
+            ; Store exact line format
+            If Not $oOriginalFormats.Exists($sCurrentSection) Then
+               $oOriginalFormats.Item($sCurrentSection) = ObjCreate("Scripting.Dictionary")
             EndIf
+            $oOriginalFormats.Item($sCurrentSection).Item($sKey) = $sLine
 
-            $oCurrent.Item($sCurrentSection).Item($sKey) = $sLine ; Save complete line to maintain format
-            _Log("Current key: [" & $sCurrentSection & "] " & $sKey)
+            ; Store actual value (trimmed)
+            If Not $oCurrentSettings.Exists($sCurrentSection) Then
+               $oCurrentSettings.Item($sCurrentSection) = ObjCreate("Scripting.Dictionary")
+            EndIf
+            $oCurrentSettings.Item($sCurrentSection).Item($sKey) = StringStripWS($aParts[1], $STR_STRIPLEADING + $STR_STRIPTRAILING)
          EndIf
       EndIf
    Next
 
-   ; Process new file
-   _Log("Processing new file...")
+   ; Process new file maintaining order and adding new keys
+   _Log("Processing new file structure...")
    $aLines = StringSplit(StringStripCR($sNewContent), @LF)
-   $sCurrentSection = $bIsLangFile ? $g_sLanguage : "config" ; Default section
+   $sCurrentSection = $bIsLangFile ? $g_sLanguage : "config"
+   $sMergedContent = ""
 
    For $i = 1 To $aLines[0]
-      $sLine = StringStripWS($aLines[$i], $STR_STRIPLEADING + $STR_STRIPTRAILING)
+      $sLine = $aLines[$i]
+      $sTrimmedLine = StringStripWS($sLine, $STR_STRIPLEADING + $STR_STRIPTRAILING)
+      $bIsComment = (Not $bIsLangFile And StringLeft($sTrimmedLine, 1) = ";")
+      $bIsEmpty = ($sTrimmedLine = "")
 
-      ; Ignore empty lines or comments (except in language files)
-      If $sLine = "" Or (Not $bIsLangFile And StringLeft($sLine, 1) = ";") Then ContinueLoop
-
-      ; Check section
-      If StringLeft($sLine, 1) = "[" And StringRight($sLine, 1) = "]" Then
-         $sCurrentSection = StringMid($sLine, 2, StringLen($sLine) - 2)
-         If Not $oNew.Exists($sCurrentSection) Then
-            $oNew.Item($sCurrentSection) = ObjCreate("Scripting.Dictionary")
-            $oNewSections.Item($sCurrentSection) = $sLine ; Save exact line
+      ; Handle sections
+      If StringLeft($sTrimmedLine, 1) = "[" And StringRight($sTrimmedLine, 1) = "]" Then
+         $sCurrentSection = StringMid($sTrimmedLine, 2, StringLen($sTrimmedLine) - 2)
+         If Not $oAllSections.Exists($sCurrentSection) Then
+            $oAllSections.Item($sCurrentSection) = ObjCreate("Scripting.Dictionary")
          EndIf
+         $sMergedContent &= $sLine & @CRLF
          ContinueLoop
       EndIf
 
-      ; Process key=value
-      If StringInStr($sLine, "=") > 0 Then
-         $aParts = StringSplit($sLine, "=", $STR_NOCOUNT)
+      ; Handle comments and empty lines
+      If $bIsComment Or $bIsEmpty Then
+         $sMergedContent &= $sLine & @CRLF
+         ContinueLoop
+      EndIf
+
+      ; Handle key=value pairs - RESPECTING ORIGINAL FORMAT
+      If StringInStr($sTrimmedLine, "=") > 0 Then
+         $aParts = StringSplit($sTrimmedLine, "=", $STR_NOCOUNT)
          If UBound($aParts) >= 2 Then
             $sKey = StringStripWS($aParts[0], $STR_STRIPLEADING + $STR_STRIPTRAILING)
-            $sValue = StringStripWS($aParts[1], $STR_STRIPLEADING + $STR_STRIPTRAILING)
 
-            If Not $oNew.Exists($sCurrentSection) Then
-               $oNew.Item($sCurrentSection) = ObjCreate("Scripting.Dictionary")
+            ; Store new setting
+            If Not $oNewSettings.Exists($sCurrentSection) Then
+               $oNewSettings.Item($sCurrentSection) = ObjCreate("Scripting.Dictionary")
             EndIf
+            $oNewSettings.Item($sCurrentSection).Item($sKey) = StringStripWS($aParts[1], $STR_STRIPLEADING + $STR_STRIPTRAILING)
 
-            $oNew.Item($sCurrentSection).Item($sKey) = $sLine ; Save complete line
-            _Log("New key: [" & $sCurrentSection & "] " & $sKey)
+            ; Use original format if exists, otherwise use new format
+            If $oOriginalFormats.Exists($sCurrentSection) And $oOriginalFormats.Item($sCurrentSection).Exists($sKey) Then
+               $sMergedContent &= $oOriginalFormats.Item($sCurrentSection).Item($sKey) & @CRLF
+            Else
+               $sMergedContent &= $sLine & @CRLF
+               ReDim $aAddedKeys[UBound($aAddedKeys) + 1]
+               $aAddedKeys[UBound($aAddedKeys) - 1] = "[" & $sCurrentSection & "] " & $sKey
+               $bChangesFound = True
+            EndIf
          EndIf
       EndIf
    Next
 
-   ; Compare and merge configurations
-   _Log("Comparing configurations...")
-   Local $aChanges[0]
-
-   For $sSection In $oNew.Keys()
-      _Log("Processing section: [" & $sSection & "]")
-
-      ; If section doesn't exist in current, add it
-      If Not $oCurrent.Exists($sSection) Then
-         _Log("New section detected, adding...")
-         $oCurrent.Item($sSection) = ObjCreate("Scripting.Dictionary")
-         $oCurrentSections.Item($sSection) = $oNewSections.Item($sSection)
+   ; Check for removed keys
+   For $sSection In $oCurrentSettings.Keys()
+      If Not $oNewSettings.Exists($sSection) Then
+         ; Entire section removed
          $bChangesFound = True
-         ReDim $aChanges[UBound($aChanges) + 1]
-         $aChanges[UBound($aChanges) - 1] = "New section: [" & $sSection & "]"
+         ReDim $aRemovedKeys[UBound($aRemovedKeys) + 1]
+         $aRemovedKeys[UBound($aRemovedKeys) - 1] = "Removed section: [" & $sSection & "]"
+         ContinueLoop
       EndIf
 
-      ; Check each key in the section
-      For $sKey In $oNew.Item($sSection).Keys()
-         _Log("Checking key: " & $sKey)
-
-         ; If key doesn't exist in current, add it
-         If Not $oCurrent.Item($sSection).Exists($sKey) Then
-            _Log("New key detected, adding: " & $sKey)
-            $oCurrent.Item($sSection).Item($sKey) = $oNew.Item($sSection).Item($sKey)
+      For $sKey In $oCurrentSettings.Item($sSection).Keys()
+         If Not $oNewSettings.Item($sSection).Exists($sKey) Then
             $bChangesFound = True
-            ReDim $aChanges[UBound($aChanges) + 1]
-            $aChanges[UBound($aChanges) - 1] = "New key: [" & $sSection & "] " & $sKey
-         Else
-            _Log("Existing key, keeping: " & $sKey)
+            ReDim $aRemovedKeys[UBound($aRemovedKeys) + 1]
+            $aRemovedKeys[UBound($aRemovedKeys) - 1] = "Removed key: [" & $sSection & "] " & $sKey
          EndIf
       Next
    Next
+
+   ; Log changes
+   If UBound($aAddedKeys) > 0 Then
+      _Log("Added keys (" & UBound($aAddedKeys) & "):")
+      For $i = 0 To UBound($aAddedKeys) - 1
+         _Log("  " & ($i + 1) & ". " & $aAddedKeys[$i])
+      Next
+   EndIf
+
+   If UBound($aRemovedKeys) > 0 Then
+      _Log("Removed keys (" & UBound($aRemovedKeys) & "):")
+      For $i = 0 To UBound($aRemovedKeys) - 1
+         _Log("  " & ($i + 1) & ". " & $aRemovedKeys[$i])
+      Next
+   EndIf
 
    If Not $bChangesFound Then
       _Log("No changes found between files")
-      ; Release objects before returning
-      $oCurrent = 0
-      $oNew = 0
-      $oCurrentSections = 0
-      $oNewSections = 0
-
+      $oCurrentSettings = 0
+      $oNewSettings = 0
+      $oOriginalFormats = 0
+      $oAllSections = 0
       Return True
-   EndIf
-
-   ; Show detected changes
-   _Log("Detected changes (" & UBound($aChanges) & "):")
-   For $i = 0 To UBound($aChanges) - 1
-      _Log("  " & ($i + 1) & ". " & $aChanges[$i])
-   Next
-
-   ; Rebuild file maintaining original format
-   _Log("Rebuilding file...")
-
-   $sMergedContent = ""
-
-   ; For language files, maintain original content and add new keys at the end
-   If $bIsLangFile Then
-      $sMergedContent = $oCurrent.Item("__original_content__") & @CRLF
-
-      ; Add new keys that weren't in the original
-      For $sSection In $oCurrent.Keys()
-         If $sSection = "__original_content__" Then ContinueLoop
-
-         For $sKey In $oCurrent.Item($sSection).Keys()
-            ; Check if key already existed in original
-            $bExists = StringInStr($oCurrent.Item("__original_content__"), $sKey & " =") > 0
-            If Not $bExists Then
-               $sMergedContent &= $oCurrent.Item($sSection).Item($sKey) & @CRLF
-            EndIf
-         Next
-      Next
-   Else
-      ; For configuration files, rebuild completely
-      For $sSection In $oCurrentSections.Keys()
-         $sMergedContent &= $oCurrentSections.Item($sSection) & @CRLF
-
-         For $sKey In $oCurrent.Item($sSection).Keys()
-            $sMergedContent &= $oCurrent.Item($sSection).Item($sKey) & @CRLF
-         Next
-
-         $sMergedContent &= @CRLF
-      Next
    EndIf
 
    ; Save changes
@@ -1258,12 +1228,10 @@ Func _UpdateConfig($sNewFilePath, $sOldFilePath)
    $hFile = FileOpen($sOldFilePath, $FO_OVERWRITE + $FO_UTF8_NOBOM)
    If $hFile = -1 Then
       _Log("Error: Could not open file for writing")
-      ; Release objects before returning
-      $oCurrent = 0
-      $oNew = 0
-      $oCurrentSections = 0
-      $oNewSections = 0
-
+      $oCurrentSettings = 0
+      $oNewSettings = 0
+      $oOriginalFormats = 0
+      $oAllSections = 0
       Return False
    EndIf
 
@@ -1273,11 +1241,9 @@ Func _UpdateConfig($sNewFilePath, $sOldFilePath)
    _Log("File updated successfully")
    _Log("=== UPDATE COMPLETED ===")
 
-   ; Release objects before returning
-   $oCurrent = 0
-   $oNew = 0
-   $oCurrentSections = 0
-   $oNewSections = 0
-
+   $oCurrentSettings = 0
+   $oNewSettings = 0
+   $oOriginalFormats = 0
+   $oAllSections = 0
    Return True
 EndFunc
