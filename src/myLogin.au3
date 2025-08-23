@@ -51,6 +51,7 @@ Const $g_sName = "myLogin"								; Script name
 Const $g_sComp = ""								; for testing only
 $g_bAutoUpdater = False									; Enable automatic updater
 $g_bDisableBlur = False									; Turn off blur
+$g_hUser32 = DllOpen("user32.dll")						; we open the handle only once
 
 ; preCache
 Enum $PassHash, $DisableExplorer, $DisablePowerOff, $DisableReboot, $DisableLockSession, $Style, $AutoUpdater, $DisableBlur
@@ -215,7 +216,7 @@ While 1
 
 		 If $g_bDisableExplorer Then _chkExplorer(False) ; We temporarily unlock... we avoid the black screen >=w8
 
-		 DllCall("user32.dll", "int", "LockWorkStation")
+		 DllCall($g_hUser32, "int", "LockWorkStation")
 		 Sleep(300)
 		 _DisableButtons(False)
 
@@ -236,6 +237,8 @@ While 1
 WEnd
 
 ; ... exit
+GUIDelete()
+
 If $g_bAutoUpdater Then _chkUpdates()
 
 Exit
@@ -249,7 +252,7 @@ Func _IsSessionLocked()
 
    $iLastCheck = TimerInit() ; reset timer
 
-   $aResult = DllCall("user32.dll", "hwnd", "GetForegroundWindow")
+   $aResult = DllCall($g_hUser32, "hwnd", "GetForegroundWindow")
 
    $bLastState = (Not @error And $aResult[0] = 0)
 
@@ -257,7 +260,7 @@ Func _IsSessionLocked()
 EndFunc
 
 Func _chkExplorer($bParam)
-   Static $bLastParam
+   Static $bLastParam, $hNtdll = DllOpen("ntdll.dll")
 
    If $bParam = $bLastParam Then Return
 
@@ -271,7 +274,7 @@ Func _chkExplorer($bParam)
 		 $hProcess = _WinAPI_OpenProcess($PROCESS_SUSPEND_RESUME, False, $aProcessList[$i][1])
 
 		 If $hProcess Then
-			DllCall("ntdll.dll", "int", $sFunc, "ptr", $hProcess)
+			DllCall($hNtdll, "int", $sFunc, "ptr", $hProcess)
 			_WinAPI_CloseHandle($hProcess)
 		 EndIf
 	  Next
@@ -652,7 +655,7 @@ Func _EnableBlur($hGUI)
    DllStructSetData($tWindowCompositionAttributeData, "Data", DllStructGetPtr($tAccentPolicy))
    DllStructSetData($tWindowCompositionAttributeData, "DataSize", DllStructGetSize($tAccentPolicy))
 
-   $aRet = DllCall("user32.dll", "int", "SetWindowCompositionAttribute", "hwnd", $hGUI, "ptr", DllStructGetPtr($tWindowCompositionAttributeData))
+   $aRet = DllCall($g_hUser32, "int", "SetWindowCompositionAttribute", "hwnd", $hGUI, "ptr", DllStructGetPtr($tWindowCompositionAttributeData))
 
    ; Release structures immediately after use
    $tAccentPolicy = 0
@@ -679,20 +682,13 @@ Func _chkUpdatesAsync()
 EndFunc
 
 Func _chkUpdates()
-   Static $iReview, $sUpdateTempDir, $sFileExt, $bPortable = Not FileExists(@ScriptDir & "\unins000.exe")
+   Static $bPortable = Not FileExists(@ScriptDir & "\unins000.exe"), $sUpdateTempDir, $sFileExt
 
-   $iReview += 1
+   If $bPortable And FileExists(@ScriptDir & '\' & @ScriptName & '.new') Or Not $bPortable And FileExists($sFileExt) Then
 
-   ; Handle file replacement if this is the second call
-   If $iReview > 1 Then
+	  _chkUpdatesProcess($bPortable, $sUpdateTempDir, $sFileExt)
 
-	  ; we check if it is the portable version
-      If $bPortable And FileExists(@ScriptName & ".new") Then Exit Run("cmd /c ping -n 1 localhost >nul & move /y " & @ScriptName & ".new " & @ScriptName, "", @SW_HIDE)
-
-	  ; Or setup installer
-	  If Not $bPortable And FileExists($sFileExt) Then Exit Run("cmd /c ping -n 1 localhost >nul & start """" """ & $sFileExt & """ /silent", "", @SW_HIDE)
-
-	  Exit ; We prevented it from continuing
+	  Return
    EndIf
 
    ; Initialize update check
@@ -821,6 +817,9 @@ Func _chkUpdates()
 
 	  $oDest.CopyHere($oZip.Items(), 0x14) ; 16 (no dialog) + 4 (yes to all)
 
+	  $oZip = 0
+	  $oDest = 0
+
 	  ; Verify extracted files
 	  $bExeNewExists = FileExists($sUpdateTempDir & @ScriptName)
 	  $bConfigExists = FileExists($sUpdateTempDir & "config.ini")
@@ -856,11 +855,31 @@ Func _chkUpdates()
    _Log(_getLang("UPDATE_PREPARED"))
 
    MsgBox($MB_ICONINFORMATION + $MB_TOPMOST, _getLang("MSG1_DOWNLOADED", $g_sName, $sLatestVersion), _getLang("MSG2_DOWNLOADED"), 3)
+
+   _chkUpdatesProcess($bPortable, $sUpdateTempDir, $sFileExt)
+EndFunc
+
+Func _chkUpdatesProcess($bPortable, $sUpdateTempDir, $sFileExt)
+   ; We wait for the script to finish to update
+   $sBatchFile = $sUpdateTempDir & "chk_process.cmd"
+
+   $sBatchContent = 'echo :mychk > "' & $sBatchFile & '" & ' & _
+					'echo tasklist /fi "imagename eq ' & @ScriptName & '" ^| find ":" ^>nul >> "' & $sBatchFile & '" & ' & _
+					'echo if errorlevel 1 ( >> "' & $sBatchFile & '" & ' & _
+					'echo ping -n 2 localhost ^>nul >> "' & $sBatchFile & '" & ' & _
+					'echo goto mychk >> "' & $sBatchFile & '" & ' & _
+					'echo ) else ( >> "' & $sBatchFile & '" & ' & _
+					'echo ' & ($bPortable ? 'move /y "' & @ScriptDir & '\' & @ScriptName & '.new" "' & @ScriptDir & '\' & @ScriptName & '"' : 'start "" "' & $sFileExt & '" /silent') & ' >> "' & $sBatchFile & '" & ' & _
+					'echo rd /s /q "' & $sUpdateTempDir & '" >> "' & $sBatchFile & '" & ' & _
+					'echo ) >> "' & $sBatchFile & '"'
+
+   Run('cmd /c ' & $sBatchContent & ' & "' & $sBatchFile & '"', '', @SW_HIDE)
 EndFunc
 
 ; Helper functions
 Func _IsInternetConnected()
-   $aReturn = DllCall("connect.dll", "long", "IsInternetConnected")
+   Static $hConnet = DllOpen("connect.dll")
+   $aReturn = DllCall($hConnet, "long", "IsInternetConnected")
    Return Not @error And $aReturn[0] = 0
 EndFunc
 
@@ -1088,8 +1107,7 @@ Func _UpdateConfig($sNewFilePath, $sOldFilePath)
    $oOriginalFormats = ObjCreate("Scripting.Dictionary") ; To maintain the exact format
    $oAllSections = ObjCreate("Scripting.Dictionary")
    $bChangesFound = False
-   Local $aAddedKeys[0]
-   Local $aRemovedKeys[0]
+   Local $aAddedKeys[0], $aRemovedKeys[0]
 
    ; Process current file to get existing settings and exact formats
    _Log("Processing current settings and formats...")
