@@ -409,52 +409,67 @@ jobs:
     - name: Analyze URL with VirusTotal
       if: env.ENABLE_VIRUSTOTAL == 'true'
       run: |
+        # Reusable function to analyze URLs in VirusTotal
+        function Analyze-VirusTotalURL {
+            param(
+                [string]$UrlToAnalyze
+            )
+            
+            # Headers API v3
+            $headers = @{
+              "x-apikey" = "${{ secrets.VIRUSTOTAL_API_KEY }}"
+              "Accept" = "application/json"
+              "Content-Type" = "application/x-www-form-urlencoded"
+            }
+            
+            try {
+              # Correctly encode the URL for the request body
+              $encodedUrl = [System.Web.HttpUtility]::UrlEncode($UrlToAnalyze)
+              $postParams = "url=$encodedUrl"
+              
+              # Send POST request
+              $response = Invoke-RestMethod -Uri "https://www.virustotal.com/api/v3/urls" `
+                                           -Method Post `
+                                           -Headers $headers `
+                                           -Body $postParams
+                                           
+              # Process the response
+              $analysisId = $response.data.id
+    
+              # Removes 'u-' prefix and numeric suffix
+              $urlId = $analysisId -replace '^u-|-\d+$'
+              
+              # Build report URL
+              $VT_GUI_URL = "https://www.virustotal.com/gui/url/$urlId"
+              
+              return $VT_GUI_URL
+              
+            } catch {
+              # Detailed error handling
+              $errorDetails = $_
+              if ($_.Exception.Response) {
+                $streamReader = [System.IO.StreamReader]::new($_.Exception.Response.GetResponseStream())
+                $errorResponse = $streamReader.ReadToEnd() | ConvertFrom-Json
+                $streamReader.Close()
+                Write-Error "VirusTotal API Error: $($errorResponse.error.message)"
+              } else {
+                Write-Error "Error general: $($errorDetails.Exception.Message)"
+              }
+              exit 1
+            }
+        }
+        
+        # Analyze the first
+        $ZIP_URL = "https://github.com/${{ github.repository }}/releases/download/${{ env.NEW_VERSION }}/${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Portable.zip"
+        $zipResult = Analyze-VirusTotalURL -UrlToAnalyze $ZIP_URL
+        
+        # Analyze the second
         $SETUP_URL = "https://github.com/${{ github.repository }}/releases/download/${{ env.NEW_VERSION }}/${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe"
+        $setupResult = Analyze-VirusTotalURL -UrlToAnalyze $SETUP_URL
         
-        # Headers API v3
-        $headers = @{
-          "x-apikey" = "${{ secrets.VIRUSTOTAL_API_KEY }}"
-          "Accept" = "application/json"
-          "Content-Type" = "application/x-www-form-urlencoded"
-        }
-        
-        try {
-          # Correctly encode the URL for the request body
-          $encodedUrl = [System.Web.HttpUtility]::UrlEncode($SETUP_URL)
-          $postParams = "url=$encodedUrl"
-          
-          # Send POST request
-          $response = Invoke-RestMethod -Uri "https://www.virustotal.com/api/v3/urls" `
-                                       -Method Post `
-                                       -Headers $headers `
-                                       -Body $postParams
-                                       
-          # Process the response
-          $analysisId = $response.data.id
-
-          # Removes 'u-' prefix and numeric suffix
-          $urlId = $analysisId -replace '^u-|-\d+$'
-          
-          # Build report URL
-          $VT_GUI_URL = "https://www.virustotal.com/gui/url/$urlId"
-          
-          # Save the URL in environment variables
-          Add-Content -Path $env:GITHUB_ENV -Value "VT_GUI_URL=$VT_GUI_URL"
-          Write-Output "VirusTotal Report URL: $VT_GUI_URL"
-          
-        } catch {
-          # Detailed error handling
-          $errorDetails = $_
-          if ($_.Exception.Response) {
-            $streamReader = [System.IO.StreamReader]::new($_.Exception.Response.GetResponseStream())
-            $errorResponse = $streamReader.ReadToEnd() | ConvertFrom-Json
-            $streamReader.Close()
-            Write-Error "VirusTotal API Error: $($errorResponse.error.message)"
-          } else {
-            Write-Error "Error general: $($errorDetails.Exception.Message)"
-          }
-          exit 1
-        }
+        # Save both results in environment variables
+        Add-Content -Path $env:GITHUB_ENV -Value "VT_ZIP_URL=$zipResult"
+        Add-Content -Path $env:GITHUB_ENV -Value "VT_SETUP_URL=$setupResult"
 
 ######################################################################### get commit message
 
@@ -511,8 +526,6 @@ jobs:
             tag: process.env.NEW_VERSION
           });
           
-          const vtMessage = `- [${process.env.ENABLE_VIRUSTOTAL === 'true' ? 'x' : ' '}] [VirusTotal](${process.env.ENABLE_VIRUSTOTAL === 'true' ? process.env.VT_GUI_URL + '?nocache=1' : '#'})`;
-          
           // Build the new body
           const newBody = `
           # :building_construction: ${process.env.COMMIT_TITLE} <img align="right" width="32" height="32" alt="Ico" src="https://github.com/user-attachments/assets/c8c08b6a-927c-4278-917a-c23b10e6491d" />
@@ -523,15 +536,11 @@ jobs:
           
           - Versions: [\`${process.env.OLD_VERSION}...${process.env.NEW_VERSION}\`](https://github.com/${context.repo.owner}/${context.repo.repo}/compare/${process.env.OLD_VERSION}...${process.env.NEW_VERSION})
           
-          ## :beginner: Security vendors' analysis
-
-          ${vtMessage}
-          
           ## :inbox_tray: Downloads
           
-          [![GitHub Downloads (specific asset, specific tag)](https://img.shields.io/github/downloads/${context.repo.owner}/${context.repo.repo}/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}_Portable.zip?style=for-the-badge&label=portable)](https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}_Portable.zip)
+          [![GitHub Downloads (specific asset, specific tag)](https://img.shields.io/github/downloads/${context.repo.owner}/${context.repo.repo}/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}_Portable.zip?style=for-the-badge&label=portable)](https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}_Portable.zip) [<img src="https://img.shields.io/badge/Security%20vendors'%20analysis-432eff?style=for-the-badge&logo=virustotal">](${process.env.VT_ZIP_URL}?nocache=1)
 
-          [![GitHub Downloads (specific asset, specific tag)](https://img.shields.io/github/downloads/${context.repo.owner}/${context.repo.repo}/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}_Setup.exe?style=for-the-badge&label=installer)](https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}_Setup.exe)
+          [![GitHub Downloads (specific asset, specific tag)](https://img.shields.io/github/downloads/${context.repo.owner}/${context.repo.repo}/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}_Setup.exe?style=for-the-badge&label=installer)](https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/${process.env.NEW_VERSION}/${process.env.SCRIPT_NAME}${process.env.NEW_VERSION}_Setup.exe) [<img src="https://img.shields.io/badge/Security%20vendors'%20analysis-432eff?style=for-the-badge&logo=virustotal">](${process.env.VT_SETUP_URL}?nocache=1)
           `;
           
           // Update release
