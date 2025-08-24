@@ -260,7 +260,7 @@ Func _IsSessionLocked()
 EndFunc
 
 Func _chkExplorer($bParam)
-   Static $bLastParam, $hNtdll = DllOpen("ntdll.dll")
+   Static $bLastParam
 
    If $bParam = $bLastParam Then Return
 
@@ -269,6 +269,7 @@ Func _chkExplorer($bParam)
    $aProcessList = ProcessList("explorer.exe")
 
    If Not @error Then
+	  Static $hNtdll = DllOpen("ntdll.dll")
 	  $sFunc = "Nt" & ($bParam ? "Suspend" : "Resume") & "Process"
 	  For $i = 1 To $aProcessList[0][0]
 		 $hProcess = _WinAPI_OpenProcess($PROCESS_SUSPEND_RESUME, False, $aProcessList[$i][1])
@@ -684,7 +685,7 @@ EndFunc
 Func _chkUpdates()
    Static $bPortable = Not FileExists(@ScriptDir & "\unins000.exe"), $sUpdateTempDir, $sFileExt
 
-   If $bPortable And FileExists(@ScriptDir & '\' & @ScriptName & '.new') Or Not $bPortable And FileExists($sFileExt) Then
+   If $bPortable And FileExists($sUpdateTempDir & @ScriptName) Or Not $bPortable And FileExists($sFileExt) Then
 
 	  _chkUpdatesProcess($bPortable, $sUpdateTempDir, $sFileExt)
 
@@ -831,10 +832,6 @@ Func _chkUpdates()
 	  EndIf
 
 	  ; Move new executable/ini
-	  If Not FileCopy($sUpdateTempDir & @ScriptName, @ScriptDir & "\" & @ScriptName & ".new", $FC_OVERWRITE) Then
-		 _Log("Error: " & _getLang("ERROR_COPY_NEW_FILE", @ScriptName))
-		 Return
-	  EndIf
 	  _Log(_getLang("COPY_NEW_FILE", @ScriptName))
 
 	  ; Update config only if new keys exist
@@ -860,6 +857,10 @@ Func _chkUpdates()
 EndFunc
 
 Func _chkUpdatesProcess($bPortable, $sUpdateTempDir, $sFileExt)
+   Static $bStart
+
+   If $bStart Then Return
+
    ; We wait for the script to finish to update
    $sBatchFile = $sUpdateTempDir & "chk_process.cmd"
 
@@ -869,17 +870,18 @@ Func _chkUpdatesProcess($bPortable, $sUpdateTempDir, $sFileExt)
 					'echo ping -n 2 localhost ^>nul >> "' & $sBatchFile & '" & ' & _
 					'echo goto mychk >> "' & $sBatchFile & '" & ' & _
 					'echo ) else ( >> "' & $sBatchFile & '" & ' & _
-					'echo ' & ($bPortable ? 'move /y "' & @ScriptDir & '\' & @ScriptName & '.new" "' & @ScriptDir & '\' & @ScriptName & '"' : 'start "" "' & $sFileExt & '" /silent') & ' >> "' & $sBatchFile & '" & ' & _
+					'echo ' & ($bPortable ? 'move /y "' & $sUpdateTempDir & @ScriptName & '" "' & @ScriptDir & '\' & @ScriptName & '"' : 'start "" "' & $sFileExt & '" /silent') & ' >> "' & $sBatchFile & '" & ' & _
 					'echo rd /s /q "' & $sUpdateTempDir & '" >> "' & $sBatchFile & '" & ' & _
 					'echo ) >> "' & $sBatchFile & '"'
 
    Run('cmd /c ' & $sBatchContent & ' & "' & $sBatchFile & '"', '', @SW_HIDE)
+
+   $bStart = True
 EndFunc
 
 ; Helper functions
 Func _IsInternetConnected()
-   Static $hConnet = DllOpen("connect.dll")
-   $aReturn = DllCall($hConnet, "long", "IsInternetConnected")
+   $aReturn = DllCall("connect.dll", "long", "IsInternetConnected")
    Return Not @error And $aReturn[0] = 0
 EndFunc
 
@@ -890,13 +892,7 @@ Func _BytesToSize($iBytes, $bUnd)
 EndFunc
 
 Func _Log($sMessage)
-   Static $sLogDir = @ScriptDir & "\" & $g_sName & "Update\", $bDirExists = FileExists($sLogDir)
-   Static $sLogPath = $sLogDir & "Debug.log"
-
-   If Not $bDirExists Then
-	  $bDirExists = DirCreate($sLogDir)
-	  If Not $bDirExists Then Return
-   EndIf
+   Static $sLogPath = @ScriptDir & "\Debug.log"
 
    Static $sLastDateTime = "", $iLastSec = -1
    $iCurrentSec = @SEC
