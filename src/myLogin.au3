@@ -51,7 +51,6 @@ Const $g_sName = "myLogin"								; Script name
 Const $g_sComp = ""								; for testing only
 $g_bAutoUpdater = False									; Enable automatic updater
 $g_bDisableBlur = False									; Turn off blur
-$g_hUser32 = DllOpen("user32.dll")						; we open the handle only once
 
 ; preCache
 Enum $PassHash, $DisableExplorer, $DisablePowerOff, $DisableReboot, $DisableLockSession, $Style, $AutoUpdater, $DisableBlur
@@ -61,10 +60,7 @@ Global $g_aCache[8] = [$g_sPassHash, $g_bDisableExplorer, $g_bDisablePowerOff, $
 _LoadLanguage()
 
 ;~ Check single instance prevent double execution
-If Not _Singleton($g_sName, 1) Then
-   MsgBox($MB_ICONWARNING, @ScriptName, _getLang("PROGRAM_ALREADY_OPEN"), 3)
-   Exit
-EndIf
+If Not _Singleton($g_sName, 1) Then Exit MsgBox($MB_ICONWARNING, @ScriptName, _getLang("PROGRAM_ALREADY_OPEN"), 3)
 
 ; Pre-activated
 _chkExplorer($g_bDisableExplorer)
@@ -216,7 +212,7 @@ While 1
 
 		 If $g_bDisableExplorer Then _chkExplorer(False) ; We temporarily unlock... we avoid the black screen >=w8
 
-		 DllCall($g_hUser32, "int", "LockWorkStation")
+		 DllCall("user32.dll", "int", "LockWorkStation")
 		 Sleep(300)
 		 _DisableButtons(False)
 
@@ -252,7 +248,7 @@ Func _IsSessionLocked()
 
    $iLastCheck = TimerInit() ; reset timer
 
-   $aResult = DllCall($g_hUser32, "hwnd", "GetForegroundWindow")
+   $aResult = DllCall("user32.dll", "hwnd", "GetForegroundWindow")
 
    $bLastState = (Not @error And $aResult[0] = 0)
 
@@ -269,13 +265,12 @@ Func _chkExplorer($bParam)
    $aProcessList = ProcessList("explorer.exe")
 
    If Not @error Then
-	  Static $hNtdll = DllOpen("ntdll.dll")
 	  $sFunc = "Nt" & ($bParam ? "Suspend" : "Resume") & "Process"
 	  For $i = 1 To $aProcessList[0][0]
 		 $hProcess = _WinAPI_OpenProcess($PROCESS_SUSPEND_RESUME, False, $aProcessList[$i][1])
 
 		 If $hProcess Then
-			DllCall($hNtdll, "int", $sFunc, "ptr", $hProcess)
+			DllCall("ntdll.dll", "int", $sFunc, "ptr", $hProcess)
 			_WinAPI_CloseHandle($hProcess)
 		 EndIf
 	  Next
@@ -443,15 +438,21 @@ EndFunc
 Func _LoadLanguage()
    $sLangFile = @ScriptDir & "\lang\" & $g_sLanguage
 
-   ; Change of ini extension to txt since version >=2.9
-   If FileExists($sLangFile & ".ini") Then FileMove($sLangFile & ".ini", $sLangFile & ".txt", $FC_OVERWRITE)
+   ; Change of ini extension to txt since version >=3.0
+   If FileExists($sLangFile & ".ini") Then
+	  Run('cmd /c move /y "' & $sLangFile & '.ini" "' & $sLangFile & '.txt"', '', @SW_HIDE)
+	  Sleep(25)
+   EndIf
 
    ; If the language file does not exist, load English by default
    If Not FileExists($sLangFile & ".txt") Then
 	  $g_sLanguage = "en" ; set the default language
 	  $sLangFile = @ScriptDir & "\lang\" & $g_sLanguage
 
-	  If FileExists($sLangFile & ".ini") Then FileMove($sLangFile & ".ini", $sLangFile & ".txt", $FC_OVERWRITE)
+	  If FileExists($sLangFile & ".ini") Then
+		 Run('cmd /c move /y "' & $sLangFile & '.ini" "' & $sLangFile & '.txt"', '', @SW_HIDE)
+		 Sleep(25)
+	  EndIf
 
 	  If Not FileExists($sLangFile & ".txt") Then
 		 If $g_bDisableExplorer Then _chkExplorer(False)
@@ -656,7 +657,7 @@ Func _EnableBlur($hGUI)
    DllStructSetData($tWindowCompositionAttributeData, "Data", DllStructGetPtr($tAccentPolicy))
    DllStructSetData($tWindowCompositionAttributeData, "DataSize", DllStructGetSize($tAccentPolicy))
 
-   $aRet = DllCall($g_hUser32, "int", "SetWindowCompositionAttribute", "hwnd", $hGUI, "ptr", DllStructGetPtr($tWindowCompositionAttributeData))
+   $aRet = DllCall("user32.dll", "int", "SetWindowCompositionAttribute", "hwnd", $hGUI, "ptr", DllStructGetPtr($tWindowCompositionAttributeData))
 
    ; Release structures immediately after use
    $tAccentPolicy = 0
@@ -892,44 +893,41 @@ Func _BytesToSize($iBytes, $bUnd)
 EndFunc
 
 Func _Log($sMessage)
-   Static $sLogPath = @ScriptDir & "\Debug.log"
+   Static $iLogFail = -1
 
-   Static $sLastDateTime = "", $iLastSec = -1
-   $iCurrentSec = @SEC
+   If $sMessage = "" Or $iLogFail = 1 Then Return
 
-   If $iCurrentSec <> $iLastSec Then
-	  $sLastDateTime = "[" & @MDAY & "/" & @MON & "/" & @YEAR & " - " & @HOUR & ":" & @MIN & ":" & $iCurrentSec & "]"
-	  $iLastSec = $iCurrentSec
+   Static $sLogPath = @ScriptDir & "\Debug.log", $sDateTime = '[%date% - %time%]'
+
+   Run('cmd /c echo ' & $sDateTime & ' ' & $sMessage & ' >> "' & $sLogPath & '"', "", @SW_HIDE)
+   Sleep(25)
+
+   ; We check if you wrote for the first time
+   If $iLogFail = -1 Then
+	  $iLogFail = FileExists($sLogPath)
+
+	  If $iLogFail Then
+		 $iLogFail = 0
+	  Else
+		 $iLogFail = 1
+		 Return
+	  EndIf
    EndIf
 
    Static $iFileSize = -1
 
-   ; Truncate file if it exceeds (50 MB = 52428800 bytes)
-   If $iFileSize = -1 And FileExists($sLogPath) Then
+   ; automatic rotation
+   If $iFileSize = -1 Then
 	  $iFileSize = FileGetSize($sLogPath)
 
-	  If $iFileSize >= 52428800 Then	; automatic rotation
+	  ; Truncate file if it exceeds (50 MB = 52428800 bytes)
+	  If $iFileSize >= 52428800 Then Run('cmd /c echo. > "' & $sLogPath & '"', "", @SW_HIDE)
 
-		 Local $aLines = FileReadToArray($sLogPath)
-		 If Not @error Then
-			$hFile = FileOpen($sLogPath, $FO_OVERWRITE + $FO_UTF8_NOBOM)
-
-			; Keep only the last X lines.
-			For $i = UBound($aLines) - 100 To UBound($aLines) - 1
-			   FileWriteLine($hFile, $aLines[$i])
-			Next
-			FileClose($hFile)
-		 EndIf
-	  EndIf
    EndIf
 
-   $hFile = FileOpen($sLogPath, $FO_APPEND + $FO_UTF8_NOBOM)
-   FileWriteLine($hFile, $sLastDateTime & " " & $sMessage)
-
    ; Check if the message contains the word "error" (case insensitive)
-   If StringInStr($sMessage, "error:", $STR_NOCASESENSE) Then FileWriteLine($hFile, $sLastDateTime & " " & _getLang("REPORT", "https://github.com/mlibre2/" & $g_sName & $g_sComp & "/issues"))
+   If StringInStr($sMessage, "error:", $STR_NOCASESENSE) Then Run('cmd /c echo ' & $sDateTime & ' ' & _getLang("REPORT", "https://github.com/mlibre2/" & $g_sName & $g_sComp & "/issues") & ' >> "' & $sLogPath & '"', "", @SW_HIDE)
 
-   FileClose($hFile)
 EndFunc
 
 Func _Uninstall()
@@ -1081,7 +1079,7 @@ Func _UpdateConfig($sNewFilePath, $sOldFilePath)
    ; If destination file doesn't exist, copy directly
    If Not FileExists($sOldFilePath) Then
       _Log("Copying new file (didn't exist)")
-      Return FileCopy($sNewFilePath, $sOldFilePath, $FC_OVERWRITE)
+      Return Run('cmd /c move /y "' & $sNewFilePath & '" "' & $sOldFilePath & '"', '', @SW_HIDE)
    EndIf
 
    ; Read contents
