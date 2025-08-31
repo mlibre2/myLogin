@@ -51,6 +51,7 @@ Const $g_sName = "myLogin"								; Script name
 Const $g_sComp = ""								; for testing only
 $g_bAutoUpdater = False									; Enable automatic updater
 $g_bDisableBlur = False									; Turn off blur
+$g_iPID_upd = 0											; Saves the updater identifier
 
 ; preCache
 Enum $PassHash, $DisableExplorer, $DisablePowerOff, $DisableReboot, $DisableLockSession, $Style, $AutoUpdater, $DisableBlur
@@ -60,7 +61,9 @@ Global $g_aCache[8] = [$g_sPassHash, $g_bDisableExplorer, $g_bDisablePowerOff, $
 _LoadLanguage()
 
 ;~ Check single instance prevent double execution
-If Not _Singleton($g_sName, 1) Then Exit MsgBox($MB_ICONWARNING, @ScriptName, _getLang("PROGRAM_ALREADY_OPEN"), 3)
+If Not _Singleton($g_sName, 1) Then Exit MsgBox($MB_ICONWARNING + $MB_TOPMOST, @ScriptName, _getLang("PROGRAM_ALREADY_OPEN"), 3)
+
+_Log("Initiation...")
 
 ; Pre-activated
 _chkExplorer($g_bDisableExplorer)
@@ -143,7 +146,9 @@ While 1
    Switch GUIGetMsg()
 	  Case $GUI_EVENT_CLOSE, $idUnlock
          If _VerifyPassword() Then
-			GUISetState(@SW_LOCK, $hGUI) ; avoid flickering when making multiple changes
+			_Log("gui: " & _getLang("UNLOCKED"))
+
+			GUISetState(@SW_LOCK, $hPassGUI) ; avoid flickering when making multiple changes
 
             GUICtrlSetImage($idIcoPass, "imageres.dll", -102)
             GUISetBkColor(0x0F8600, $hGUI)	; semi dark green
@@ -164,15 +169,17 @@ While 1
 
             SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
 
-			GUISetState(@SW_UNLOCK, $hGUI)
+			GUISetState(@SW_UNLOCK, $hPassGUI)
             Sleep(400)
 
             ExitLoop
          EndIf
 
-		 GUISetState(@SW_LOCK, $hGUI)
+		 $g_iFailAttempts += 1
 
-         $g_iFailAttempts += 1
+		 _Log("gui: " & _getLang("INCORRECT_PASSWORD", $g_iFailAttempts))
+
+		 GUISetState(@SW_LOCK, $hPassGUI)
 
          GUICtrlSetData($idErrorLabel, _getLang("INCORRECT_PASSWORD", $g_iFailAttempts))
          GUICtrlSetData($idInput, "")
@@ -184,13 +191,13 @@ While 1
 
 		 _DisableButtons(True)
 
-		 GUISetState(@SW_UNLOCK, $hGUI)
+		 GUISetState(@SW_UNLOCK, $hPassGUI)
 
 		 If $g_iFailAttempts >= 3 Then Sleep(100 * $g_iFailAttempts)
 
 		 Sleep(300)
 
-		 GUISetState(@SW_LOCK, $hGUI)
+		 GUISetState(@SW_LOCK, $hPassGUI)
 
 		 _DisableButtons(False)
 
@@ -199,7 +206,7 @@ While 1
 
 		 GUICtrlSetState($idInput, $GUI_FOCUS)
 
-		 GUISetState(@SW_UNLOCK, $hGUI)
+		 GUISetState(@SW_UNLOCK, $hPassGUI)
 
       Case $idPowerOff
 		 _ShutdownSys("/s")
@@ -208,6 +215,8 @@ While 1
 		 _ShutdownSys("/r")
 
 	  Case $idLockSession
+		 _Log("gui: " & _getLang("UNLOCK"))
+
 		 _DisableButtons(True)
 
 		 If $g_bDisableExplorer Then _chkExplorer(False) ; We temporarily unlock... we avoid the black screen >=w8
@@ -232,21 +241,27 @@ While 1
    Sleep(50)	; save CPU :?
 WEnd
 
-; ... exit
-GUIDelete()
+; GUIDelete... exit
+If $g_bAutoUpdater And ProcessExists($g_iPID_upd) Then
+   ProcessClose($g_iPID_upd)
+   Run('cmd /c del /q "' & @ScriptDir & '\chk_online.cmd"', '', @SW_HIDE)
+EndIf
 
-If $g_bAutoUpdater Then _chkUpdates()
+_Log("Ending...")
 
 Exit
 
 ;~ Functions
 Func _IsSessionLocked()
-   Static $iLastCheck = TimerInit(), $bLastState
+   Static $iCallCount, $bLastState
+
+   $iCallCount += 1
 
    ; Only check every X ms to reduce CPU usage
-   If TimerDiff($iLastCheck) < 500 Then Return $bLastState
+   ; We calculate it according to the waiting time of the main loop, it is similar to how many ms we want... 50*10=500ms
+   If $iCallCount < 10 Then Return $bLastState
 
-   $iLastCheck = TimerInit() ; reset timer
+   $iCallCount = 0 ; reset counter
 
    $aResult = DllCall("user32.dll", "hwnd", "GetForegroundWindow")
 
@@ -278,6 +293,8 @@ Func _chkExplorer($bParam)
 EndFunc
 
 Func _ShutdownSys($sParam = "")
+   _Log("gui: " & _getLang($sParam = "/s" ? "SHUTDOWN" : "REBOOT"))
+
    _DisableButtons(True)
    Run("cmd /c shutdown " & $sParam & " /f /t 0", "", @SW_HIDE)
 EndFunc
@@ -287,7 +304,7 @@ Func _VerifyPassword()
 EndFunc
 
 Func _getHash($sInput)
-   $sHash = _Crypt_HashData($sInput, 0x0000800e) ; sha512
+   $sHash = _Crypt_HashData($sInput, $CALG_SHA_512)
    Return _Crypt_HashData($sHash, $CALG_MD5) ; 128-bit
 EndFunc
 
@@ -316,10 +333,7 @@ Func _GenerateNewHash()
       $sInput = InputBox(_getLang("HASH_GENERATOR_TITLE"), _getLang("HASH_GENERATOR_MSG") & @CRLF & @CRLF & "- " & _getLang("MIN_CHARS", $g_iPassMinLength, $g_iPassMaxLength) & @CRLF & "- " & _getLang("NO_SPACES"), "", "*", 350)
 
       ; If user cancels
-      If @error Then
-         MsgBox($MB_ICONINFORMATION, _getLang("INFO"), _getLang("HASH_GENERATION_CANCELED"))
-         Exit
-      EndIf
+      If @error Then Exit MsgBox($MB_ICONINFORMATION, _getLang("INFO"), _getLang("HASH_GENERATION_CANCELED"))
 
       ; Validations
       If StringLen($sInput) < $g_iPassMinLength Or StringLen($sInput) > $g_iPassMaxLength Then
@@ -352,7 +366,7 @@ Func _ProcessParameters()
                $i += 1 ; Skip to next parameter
 
                ; Hash validation
-               If StringLen($g_sPassHash) <> 34 Or StringLeft($g_sPassHash, 2) <> "0x" Then
+               If Not StringRegExp($g_sPassHash, "^0x\w{32}$") Then
 				  If $g_bDisableExplorer Then _chkExplorer(False)
 
                   MsgBox($MB_ICONERROR, _getLang("ERROR_TITLE"), _getLang("INVALID_HASH") & @CRLF & @CRLF & @ScriptName & " /PassHash 0x9461E4B1394C6134483668F09CCF7B93" & @CRLF & @CRLF & _getLang("GENERATE_HASH_HELP") & @CRLF & @CRLF & @ScriptName & " /GenerateHash")
@@ -391,7 +405,7 @@ Func _ProcessParameters()
 
 		 Case "/AutoUpdater", "/au"
 			$g_bAutoUpdater = True
-			AdlibRegister("_chkUpdatesAsync", 500)
+			_chkOnlineAsync()
 
 		 Case "/DisableBlur", "/db"
 			$g_bDisableBlur = True
@@ -439,20 +453,14 @@ Func _LoadLanguage()
    $sLangFile = @ScriptDir & "\lang\" & $g_sLanguage
 
    ; Change of ini extension to txt since version >=3.0
-   If FileExists($sLangFile & ".ini") Then
-	  Run('cmd /c move /y "' & $sLangFile & '.ini" "' & $sLangFile & '.txt"', '', @SW_HIDE)
-	  Sleep(25)
-   EndIf
+   If FileExists($sLangFile & ".ini") Then RunWait('cmd /c move /y "' & $sLangFile & '.ini" "' & $sLangFile & '.txt"', '', @SW_HIDE)
 
    ; If the language file does not exist, load English by default
    If Not FileExists($sLangFile & ".txt") Then
 	  $g_sLanguage = "en" ; set the default language
 	  $sLangFile = @ScriptDir & "\lang\" & $g_sLanguage
 
-	  If FileExists($sLangFile & ".ini") Then
-		 Run('cmd /c move /y "' & $sLangFile & '.ini" "' & $sLangFile & '.txt"', '', @SW_HIDE)
-		 Sleep(25)
-	  EndIf
+	  If FileExists($sLangFile & ".ini") Then RunWait('cmd /c move /y "' & $sLangFile & '.ini" "' & $sLangFile & '.txt"', '', @SW_HIDE)
 
 	  If Not FileExists($sLangFile & ".txt") Then
 		 If $g_bDisableExplorer Then _chkExplorer(False)
@@ -476,7 +484,7 @@ Func _LoadLanguage()
    FileClose($hFile)
 
    ; Validate TXT/INI file content
-   If $sContent = "" Or StringLeft($sContent, 4) <> "[" & $g_sLanguage & "]" Or Not StringRegExp($sContent, "(?:\r\n|\n|\A)\w+\s*=") Then
+   If $sContent = "" Or Not StringRegExp($sContent, "^\[\w{2}\]\R\w+\s?=") Then
 	  If $g_bDisableExplorer Then _chkExplorer(False)
 
 	  MsgBox($MB_ICONERROR, "Error", "Invalid language file format")
@@ -639,8 +647,8 @@ Func _getOSLang()
 EndFunc
 
 Func _EnableBlur($hGUI)
-   ; get parameter and chk compatibility
-   If $g_bDisableBlur Or Not StringRegExp(@OSVersion, "_(8|10|11|201|202)") Then	; Get OS Version
+   ; get parameter and chk compatibility (Windows 8+)
+   If $g_bDisableBlur Or @OSBuild < 7850 Then
 	  WinSetTrans($hGUI, "", $g_iTransparencyGUI)
 	  Return False
    EndIf
@@ -663,7 +671,12 @@ Func _EnableBlur($hGUI)
    $tAccentPolicy = 0
    $tWindowCompositionAttributeData = 0
 
-   If @error Or Not $aRet[0] Then Return False
+   ; Fallback to simple transparency if blur doesn't work
+   If @error Or Not $aRet[0] Then
+	  _Log("Error: Blur incompatible in build " & @OSBuild)
+	  WinSetTrans($hGUI, "", $g_iTransparencyGUI)
+	  Return False
+   EndIf
 
    Return True
 EndFunc
@@ -678,37 +691,18 @@ Func _DisableButtons($bValue)
 EndFunc
 
 ; upd
-Func _chkUpdatesAsync()
-   AdlibUnRegister("_chkUpdatesAsync")
-   _chkUpdates()
-EndFunc
-
-Func _chkUpdates()
-   Static $bPortable = Not FileExists(@ScriptDir & "\unins000.exe"), $sUpdateTempDir, $sFileExt
-
-   If $bPortable And FileExists($sUpdateTempDir & @ScriptName) Or Not $bPortable And FileExists($sFileExt) Then
-
-	  _chkUpdatesProcess($bPortable, $sUpdateTempDir, $sFileExt)
-
-	  Return
-   EndIf
-
+Func _getUpdates()
    ; Initialize update check
    $sReleasesURL = "https://api.github.com/repos/mlibre2/" & $g_sName & $g_sComp & "/releases/latest"
 
    _Log(_getLang("START_CHECK_NEW_UPDATE"))
    _Log(_getLang("CURRENT_VERSION", $g_sVersion))
 
-   ; Check internet connection
-   If Not _IsInternetConnected() Then
-      _Log("Error: " & _getLang("ERROR_NO_INTERNET"))
-      Return
-   EndIf
-
    ; Get release information
    $sResponse = BinaryToString(InetRead($sReleasesURL, $INET_FORCEBYPASS))
    If @error Or $sResponse = "" Then
       _Log("Error: " & _getLang("ERROR_NO_GET_UPDATE"))
+	  _restoreGUI()
       Return
    EndIf
 
@@ -716,6 +710,7 @@ Func _chkUpdates()
    $aVersionMatch = StringRegExp($sResponse, '"tag_name":"v?([\d.]+)"', 1)
    If @error Or Not IsArray($aVersionMatch) Then
       _Log("Error: " & _getLang("ERROR_INVALID_VERSION"))
+	  _restoreGUI()
       Return
    EndIf
 
@@ -725,13 +720,18 @@ Func _chkUpdates()
    ; Compare versions
    If $g_sVersion == $sLatestVersion Or _VersionCompare($g_sVersion, $sLatestVersion) > 0 Then
 	  _Log(_getLang("ALREADY_LATEST_VERSION"))
+	  _restoreGUI()
       Return
    EndIf
+
+   ; Check type
+   $bPortable = Not FileExists(@ScriptDir & "\unins000.exe")
 
    ; Get download URL
    $aUrlMatch = StringRegExp($sResponse, '"browser_download_url":"(https:[^"]+?' & $g_sName & '[^"]+?\' & ($bPortable ? ".zip" : "_Setup.exe") & ')"', 1)
    If @error Or Not IsArray($aUrlMatch) Then
       _Log("Error: " & _getLang("ERROR_DOWNLOAD_URL"))
+	  _restoreGUI()
       Return
    EndIf
 
@@ -743,6 +743,7 @@ Func _chkUpdates()
 
    If Not DirCreate($sUpdateTempDir) Then
       _Log("Error: " & _getLang("ERROR_CREATE_TMP_DIR"))
+	  _restoreGUI()
       Return
    EndIf
 
@@ -752,6 +753,7 @@ Func _chkUpdates()
    $hDownload = InetGet($sDownloadURL, $sFileExt, $INET_FORCEBYPASS, $INET_DOWNLOADBACKGROUND)
    If @error Then
       _Log("Error: " & _getLang("ERROR_DOWNLOAD"))
+	  _restoreGUI()
       Return
    EndIf
 
@@ -781,7 +783,7 @@ Func _chkUpdates()
 			$iElapsed = TimerDiff($iStartTime) / 1000
 			$sSpeed = $iElapsed > 0 ? _BytesToSize($iBytes / $iElapsed, False) & "/s" : "N/A"
 
-            ProgressSet($iPercent, Round($iPercent) & "% - " & _BytesToSize($iBytes, True) & "/" & _BytesToSize($iFileSize, True) & @CRLF & _getLang("SPEED") & ": " & $sSpeed)
+            ProgressSet($iPercent, Round($iPercent) & "% - " & _BytesToSize($iBytes, True) & "/" & _BytesToSize($iFileSize, True) & @CRLF & _getLang("DOWNLOAD_SPEED") & ": " & $sSpeed)
          EndIf
       EndIf
    Until InetGetInfo($hDownload, $INET_DOWNLOADCOMPLETE)
@@ -794,6 +796,7 @@ Func _chkUpdates()
    ; Verify download
    If Not FileExists($sFileExt) Or FileGetSize($sFileExt) = 0 Then
       _Log("Error: " & _getLang("ERROR_DOWNLOAD"))
+	  _restoreGUI()
       Return
    EndIf
 
@@ -805,6 +808,7 @@ Func _chkUpdates()
 	  $oShell = ObjCreate("Shell.Application")
 	  If Not IsObj($oShell) Then
 		 _Log("Error: " & _getLang("ERROR_EXTRACT_FILES"))
+		 _restoreGUI()
 		 Return
 	  EndIf
 
@@ -814,6 +818,7 @@ Func _chkUpdates()
 
 	  If Not IsObj($oZip) Or Not IsObj($oDest) Then
 		 _Log("Error: " & _getLang("ERROR_EXTRACT_FILES"))
+		 _restoreGUI()
 		 Return
 	  EndIf
 
@@ -823,12 +828,9 @@ Func _chkUpdates()
 	  $oDest = 0
 
 	  ; Verify extracted files
-	  $bExeNewExists = FileExists($sUpdateTempDir & @ScriptName)
-	  $bConfigExists = FileExists($sUpdateTempDir & "config.ini")
-	  $bLangExists = FileExists($sUpdateTempDir & "lang\")
-
-	  If Not $bExeNewExists Or Not $bConfigExists Or Not $bLangExists Then
+	  If Not FileExists($sUpdateTempDir & @ScriptName) Or Not FileExists($sUpdateTempDir & "config.ini") Or Not FileExists($sUpdateTempDir & "lang\") Then
 		 _Log("Error: " & _getLang("ERROR_NO_VALID_FILES"))
+		 _restoreGUI()
 		 Return
 	  EndIf
 
@@ -838,6 +840,7 @@ Func _chkUpdates()
 	  ; Update config only if new keys exist
 	  If Not _UpdateConfig($sUpdateTempDir & "config.ini", @ScriptDir & "\config.ini") Then
 		 _Log("Error: " & _getLang("ERROR_COPY_NEW_FILE", "config.ini"))
+		 _restoreGUI()
 		 Return
 	  EndIf
 	  _Log(_getLang("COPY_NEW_FILE", "config.ini"))
@@ -845,6 +848,7 @@ Func _chkUpdates()
 	  ; Update language file only if new keys exist
 	  If Not _UpdateConfig($sUpdateTempDir & "lang\" & $g_sLanguage & ".txt", @ScriptDir & "\lang\" & $g_sLanguage & ".txt") Then
 		 _Log("Error: " & _getLang("ERROR_COPY_NEW_LANG"))
+		 _restoreGUI()
 		 Return
 	  EndIf
 	  _Log(_getLang("COPY_NEW_LANG"))
@@ -852,15 +856,8 @@ Func _chkUpdates()
 
    _Log(_getLang("UPDATE_PREPARED"))
 
-   MsgBox($MB_ICONINFORMATION + $MB_TOPMOST, _getLang("MSG1_DOWNLOADED", $g_sName, $sLatestVersion), _getLang("MSG2_DOWNLOADED"), 3)
-
-   _chkUpdatesProcess($bPortable, $sUpdateTempDir, $sFileExt)
-EndFunc
-
-Func _chkUpdatesProcess($bPortable, $sUpdateTempDir, $sFileExt)
-   Static $bStart
-
-   If $bStart Then Return
+   GUICtrlSetData($idTxtPass, _getLang("MSG_DOWNLOADED", $g_sName, $sLatestVersion))
+   Sleep(5000)
 
    ; We wait for the script to finish to update
    $sBatchFile = $sUpdateTempDir & "chk_process.cmd"
@@ -877,15 +874,68 @@ Func _chkUpdatesProcess($bPortable, $sUpdateTempDir, $sFileExt)
 
    Run('cmd /c ' & $sBatchContent & ' & "' & $sBatchFile & '"', '', @SW_HIDE)
 
+   _restoreGUI()
+EndFunc
+
+Func _chkOnlineAsync()
+   Static $bStart, $sBatchFile = @ScriptDir & "\chk_online.cmd"
+
+   If $bStart Then
+	  If Not FileExists($sBatchFile) Then
+
+		 GUISetState(@SW_LOCK, $hPassGUI)
+		 GUICtrlSetImage($idIcoPass, "imageres.dll", -185)
+		 GUICtrlSetData($idTxtPass, _getLang("UPDATING_MSG1"))
+		 GUICtrlSetColor($idTxtPass, $g_iStyle > 0 ? 0x0FFF00 : 0x0F9800) ; green/dark green
+
+		 GUICtrlSetData($idTxtMsg, _getLang("UPDATING_MSG2"))
+
+		 If $g_iFailAttempts Then GUICtrlSetData($idErrorLabel, "")
+
+		 GUISetState(@SW_UNLOCK, $hPassGUI)
+
+		 _getUpdates()
+
+		 AdlibUnRegister("_chkOnlineAsync")
+	  Else
+		 _Log(_getLang("ERROR_NO_INTERNET"))
+	  EndIf
+
+	  Return
+   EndIf
+
+   $sBatchContent = 'echo :mychk > "' & $sBatchFile & '" & ' & _
+					'echo ping 1.1.1.1 ^| find "TTL=" ^>nul >> "' & $sBatchFile & '" & ' & _
+					'echo if errorlevel 1 ( >> "' & $sBatchFile & '" & ' & _
+					'echo ping -n 5 localhost ^>nul >> "' & $sBatchFile & '" & ' & _
+					'echo goto mychk >> "' & $sBatchFile & '" & ' & _
+					'echo ) else ( >> "' & $sBatchFile & '" & ' & _
+					'echo del /q "' & $sBatchFile & '" >> "' & $sBatchFile & '" & ' & _
+					'echo ) >> "' & $sBatchFile & '"'
+
+   $g_iPID_upd = Run('cmd /c ' & $sBatchContent & ' & "' & $sBatchFile & '"', '', @SW_HIDE)
+
+   If @error Then
+	  _Log("Error: Could not run batch file " & $sBatchFile)
+	  Return
+   EndIf
+
+   AdlibRegister("_chkOnlineAsync", 15000)
+
    $bStart = True
 EndFunc
 
-; Helper functions
-Func _IsInternetConnected()
-   $aReturn = DllCall("connect.dll", "long", "IsInternetConnected")
-   Return Not @error And $aReturn[0] = 0
+Func _restoreGUI()
+   GUISetState(@SW_LOCK, $hPassGUI)
+   GUICtrlSetImage($idIcoPass, "shell32.dll", -245)
+   GUICtrlSetData($idTxtPass, _getLang("SYSTEM_LOCKED"))
+   GUICtrlSetColor($idTxtPass, $g_iStyle > 0 ? $g_iColorTxt : 0x000000)
+
+   GUICtrlSetData($idTxtMsg, _getLang("ENTER_PASSWORD"))
+   GUISetState(@SW_UNLOCK, $hPassGUI)
 EndFunc
 
+; Helper functions
 Func _BytesToSize($iBytes, $bUnd)
    If $bUnd Then Return StringFormat("%.2f MB", $iBytes / (1024 * 1024))
 
@@ -899,20 +949,16 @@ Func _Log($sMessage)
 
    Static $sLogPath = @ScriptDir & "\Debug.log", $sDateTime = '[%date% - %time%]'
 
-   Run('cmd /c echo ' & $sDateTime & ' ' & $sMessage & ' >> "' & $sLogPath & '"', "", @SW_HIDE)
-   Sleep(25)
+   ; Escape internal quotes and then wrap
+   $sMessage = '"' & StringReplace($sMessage, '"', '""') & '"'
+
+   RunWait('cmd /c echo ' & $sDateTime & ' ' & $sMessage & ' >> "' & $sLogPath & '"', '', @SW_HIDE)
 
    ; We check if you wrote for the first time
-   If $iLogFail = -1 Then
-	  $iLogFail = FileExists($sLogPath)
-
-	  If $iLogFail Then
-		 $iLogFail = 0
-	  Else
-		 $iLogFail = 1
-		 Return
-	  EndIf
-   EndIf
+    If $iLogFail = -1 Then
+	  $iLogFail = FileExists($sLogPath) ? 0 : 1
+	  If $iLogFail Then Return
+    EndIf
 
    Static $iFileSize = -1
 
@@ -921,12 +967,18 @@ Func _Log($sMessage)
 	  $iFileSize = FileGetSize($sLogPath)
 
 	  ; Truncate file if it exceeds (50 MB = 52428800 bytes)
-	  If $iFileSize >= 52428800 Then Run('cmd /c echo. > "' & $sLogPath & '"', "", @SW_HIDE)
+	  If $iFileSize >= 52428800 Then RunWait('cmd /c echo. > "' & $sLogPath & '"', '', @SW_HIDE)
 
    EndIf
 
    ; Check if the message contains the word "error" (case insensitive)
-   If StringInStr($sMessage, "error:", $STR_NOCASESENSE) Then Run('cmd /c echo ' & $sDateTime & ' ' & _getLang("REPORT", "https://github.com/mlibre2/" & $g_sName & $g_sComp & "/issues") & ' >> "' & $sLogPath & '"', "", @SW_HIDE)
+   If StringRegExp($sMessage, "(?i)error:") Then
+
+	  $sMessage = _getLang("REPORT", "https://github.com/mlibre2/" & $g_sName & $g_sComp & "/issues")
+	  $sMessage = '"' & StringReplace($sMessage, '"', '""') & '"'
+
+	  RunWait('cmd /c echo ' & $sDateTime & ' ' & $sMessage & ' >> "' & $sLogPath & '"', '', @SW_HIDE)
+   EndIf
 
 EndFunc
 
@@ -970,7 +1022,7 @@ Func _Uninstall()
    Else
 	  Run("cmd /c mode con cols=80 lines=5 & color 3f & title Uninstaller & echo. & echo. " & _getLang("UNINSTALL_IN_PROGRESS", $g_sName) & " & echo. & ping -n 4 localhost >nul & echo. 100% & ping -n 2 localhost >nul")
 
-	  Run('cmd /c ping -n 1 localhost >nul & rd /s /q "' & @ScriptDir & '"', "", @SW_HIDE)
+	  Run('cmd /c ping -n 1 localhost >nul & rd /s /q "' & @ScriptDir & '"', '', @SW_HIDE)
    EndIf
 
    Exit
@@ -1014,7 +1066,7 @@ Func _ProcessConfig($bChk)
 	  EndIf
 
 	  ; Hash validation
-	  If $bChk And StringLen($g_sPassHash) <> 34 Or $bChk And StringLeft($g_sPassHash, 2) <> "0x" Then
+	  If $bChk And Not StringRegExp($g_sPassHash, "^0x\w{32}$") Then
 
 		 If $g_bDisableExplorer Then _chkExplorer(False)
 
@@ -1055,7 +1107,7 @@ Func _ProcessConfig($bChk)
    If $g_aCache[$AutoUpdater] = $g_bAutoUpdater Then
 	  $g_bAutoUpdater = (IniRead($sIniFile, "Config", "AutoUpdater", $g_bAutoUpdater ? "True" : "False") = "True")
 
-	  If $g_bAutoUpdater Then AdlibRegister("_chkUpdatesAsync", 500)
+	  If $g_bAutoUpdater Then _chkOnlineAsync()
    EndIf
 
    If $g_aCache[$DisableBlur] = $g_bDisableBlur Then $g_bDisableBlur = (IniRead($sIniFile, "Config", "DisableBlur", $g_bDisableBlur ? "True" : "False") = "True")
