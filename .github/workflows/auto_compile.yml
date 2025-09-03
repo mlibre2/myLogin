@@ -550,33 +550,3 @@ jobs:
             release_id: release.id,
             body: newBody
           });
-
-
-######################################################################### add reactions
-      
-    - name: Add random reactions to release
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const { data: release } = await github.rest.repos.getReleaseByTag({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            tag: '${{ env.NEW_VERSION }}'
-          });
-          
-          // Reactions allowed by GitHub API for releases
-          const reactions = ['+1', 'heart', 'hooray', 'rocket', 'eyes', 'laugh']
-            .sort(() => Math.random() - 0.5)  // Shuffle array
-            .slice(0, 2);  // Take first 2 elements
-            
-          console.log(`Adding reactions: ${reactions.join(' ... ')}`);
-          
-          // Add reactions in parallel
-          await Promise.all(reactions.map(content => 
-            github.rest.reactions.createForRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: release.id,
-              content
-            })
-          ));
