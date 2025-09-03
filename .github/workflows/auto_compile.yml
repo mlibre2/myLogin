@@ -16,7 +16,7 @@ on:
 jobs:
   compile:
     runs-on: windows-2022 # Autoit tool does not support >=2025
-    timeout-minutes: 3    # Maximum compilation time
+    timeout-minutes: 5    # Maximum compilation time
     env:
       SCRIPT_NAME: myLogin
       SCRIPT_PATH: 'src\'
