@@ -145,7 +145,7 @@ GUISetAccelerators($aAccelKeys, $hPassGUI)
 While 1
    Switch GUIGetMsg()
 	  Case $GUI_EVENT_CLOSE, $idUnlock
-         If _VerifyPassword() Then
+         If _getHash(GUICtrlRead($idInput)) = $g_sPassHash Then
 			_Log("gui: " & _getLang("UNLOCKED"))
 
 			GUISetState(@SW_LOCK, $hPassGUI) ; avoid flickering when making multiple changes
@@ -299,12 +299,9 @@ Func _ShutdownSys($sParam = "")
    Run("cmd /c shutdown " & $sParam & " /f /t 0", "", @SW_HIDE)
 EndFunc
 
-Func _VerifyPassword()
-   Return (_getHash(GUICtrlRead($idInput)) = $g_sPassHash)
-EndFunc
-
 Func _getHash($sInput)
    $sHash = _Crypt_HashData($sInput, $CALG_SHA_512)
+   $sInput = "" ; clear
    Return _Crypt_HashData($sHash, $CALG_MD5) ; 128-bit
 EndFunc
 
@@ -349,6 +346,8 @@ Func _GenerateNewHash()
 
    ; Generate and display hash
    InputBox(_getLang("GENERATED_HASH_TITLE"), _getLang("GENERATED_HASH_MSG") & @CRLF & @CRLF & $sInput & @CRLF & @CRLF & _getLang("YOUR_NEW_HASH"), _getHash($sInput), "", 350)
+
+   $sInput = "" ; clear
 EndFunc
 
 Func _ProcessParameters()
@@ -702,7 +701,6 @@ Func _getUpdates()
    $sResponse = BinaryToString(InetRead($sReleasesURL, $INET_FORCEBYPASS))
    If @error Or $sResponse = "" Then
       _Log("Error: " & _getLang("ERROR_NO_GET_UPDATE"))
-	  _restoreGUI()
       Return
    EndIf
 
@@ -710,7 +708,6 @@ Func _getUpdates()
    $aVersionMatch = StringRegExp($sResponse, '"tag_name":"v?([\d.]+)"', 1)
    If @error Or Not IsArray($aVersionMatch) Then
       _Log("Error: " & _getLang("ERROR_INVALID_VERSION"))
-	  _restoreGUI()
       Return
    EndIf
 
@@ -720,7 +717,6 @@ Func _getUpdates()
    ; Compare versions
    If $g_sVersion == $sLatestVersion Or _VersionCompare($g_sVersion, $sLatestVersion) > 0 Then
 	  _Log(_getLang("ALREADY_LATEST_VERSION"))
-	  _restoreGUI()
       Return
    EndIf
 
@@ -731,7 +727,6 @@ Func _getUpdates()
    $aUrlMatch = StringRegExp($sResponse, '"browser_download_url":"(https:[^"]+?' & $g_sName & '[^"]+?\' & ($bPortable ? ".zip" : "_Setup.exe") & ')"', 1)
    If @error Or Not IsArray($aUrlMatch) Then
       _Log("Error: " & _getLang("ERROR_DOWNLOAD_URL"))
-	  _restoreGUI()
       Return
    EndIf
 
@@ -743,7 +738,6 @@ Func _getUpdates()
 
    If Not DirCreate($sUpdateTempDir) Then
       _Log("Error: " & _getLang("ERROR_CREATE_TMP_DIR"))
-	  _restoreGUI()
       Return
    EndIf
 
@@ -753,9 +747,21 @@ Func _getUpdates()
    $hDownload = InetGet($sDownloadURL, $sFileExt, $INET_FORCEBYPASS, $INET_DOWNLOADBACKGROUND)
    If @error Then
       _Log("Error: " & _getLang("ERROR_DOWNLOAD"))
-	  _restoreGUI()
       Return
    EndIf
+
+   ; msg upd
+   GUISetState(@SW_LOCK, $hPassGUI)
+   GUICtrlSetImage($idIcoPass, "imageres.dll", -185)
+   GUICtrlSetData($idTxtPass, _getLang("UPDATING_MSG1"))
+   GUICtrlSetColor($idTxtPass, $g_iStyle > 0 ? 0x0FFF00 : 0x0F9800) ; green/dark green
+
+   GUICtrlSetData($idTxtMsg, _getLang("UPDATING_MSG2"))
+
+   If $g_iFailAttempts Then GUICtrlSetData($idErrorLabel, "")
+
+   GUISetState(@SW_UNLOCK, $hPassGUI)
+   ; --------------------------------------
 
    $iProgressWidth = 400  ; Width of the progress window
    $iProgressHeight = 100 ; Progress window height
@@ -858,6 +864,7 @@ Func _getUpdates()
 
    GUICtrlSetData($idTxtPass, _getLang("MSG_DOWNLOADED", $g_sName, $sLatestVersion))
    Sleep(5000)
+   _restoreGUI()
 
    ; We wait for the script to finish to update
    $sBatchFile = $sUpdateTempDir & "chk_process.cmd"
@@ -873,8 +880,6 @@ Func _getUpdates()
 					'echo ) >> "' & $sBatchFile & '"'
 
    Run('cmd /c ' & $sBatchContent & ' & "' & $sBatchFile & '"', '', @SW_HIDE)
-
-   _restoreGUI()
 EndFunc
 
 Func _chkOnlineAsync()
@@ -882,17 +887,6 @@ Func _chkOnlineAsync()
 
    If $bStart Then
 	  If Not FileExists($sBatchFile) Then
-
-		 GUISetState(@SW_LOCK, $hPassGUI)
-		 GUICtrlSetImage($idIcoPass, "imageres.dll", -185)
-		 GUICtrlSetData($idTxtPass, _getLang("UPDATING_MSG1"))
-		 GUICtrlSetColor($idTxtPass, $g_iStyle > 0 ? 0x0FFF00 : 0x0F9800) ; green/dark green
-
-		 GUICtrlSetData($idTxtMsg, _getLang("UPDATING_MSG2"))
-
-		 If $g_iFailAttempts Then GUICtrlSetData($idErrorLabel, "")
-
-		 GUISetState(@SW_UNLOCK, $hPassGUI)
 
 		 _getUpdates()
 
@@ -947,7 +941,18 @@ Func _Log($sMessage)
 
    If $sMessage = "" Or $iLogFail = 1 Then Return
 
-   Static $sLogPath = @ScriptDir & "\Debug.log", $sDateTime = '[%date% - %time%]'
+   Static $sLogPath = @ScriptDir & "\Debug.log", $sDateTime = '[%date% - %time%]', $iFileSize = -1
+
+   ; automatic rotation
+   If $iFileSize = -1 Then
+	  $iFileSize = FileGetSize($sLogPath)
+
+	  ; Truncate file if it exceeds (50 MB = 52428800 bytes)
+	  If $iFileSize >= 52428800 Then
+		 RunWait('cmd /c echo. > "' & $sLogPath & '"', '', @SW_HIDE)
+	  EndIf
+
+   EndIf
 
    ; Escape internal quotes and then wrap
    $sMessage = '"' & StringReplace($sMessage, '"', '""') & '"'
@@ -955,20 +960,9 @@ Func _Log($sMessage)
    RunWait('cmd /c echo ' & $sDateTime & ' ' & $sMessage & ' >> "' & $sLogPath & '"', '', @SW_HIDE)
 
    ; We check if you wrote for the first time
-    If $iLogFail = -1 Then
+   If $iLogFail = -1 Then
 	  $iLogFail = FileExists($sLogPath) ? 0 : 1
 	  If $iLogFail Then Return
-    EndIf
-
-   Static $iFileSize = -1
-
-   ; automatic rotation
-   If $iFileSize = -1 Then
-	  $iFileSize = FileGetSize($sLogPath)
-
-	  ; Truncate file if it exceeds (50 MB = 52428800 bytes)
-	  If $iFileSize >= 52428800 Then RunWait('cmd /c echo. > "' & $sLogPath & '"', '', @SW_HIDE)
-
    EndIf
 
    ; Check if the message contains the word "error" (case insensitive)
@@ -979,7 +973,6 @@ Func _Log($sMessage)
 
 	  RunWait('cmd /c echo ' & $sDateTime & ' ' & $sMessage & ' >> "' & $sLogPath & '"', '', @SW_HIDE)
    EndIf
-
 EndFunc
 
 Func _Uninstall()
