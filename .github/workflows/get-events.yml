@@ -5,32 +5,82 @@ on:
     types: [opened, reopened, closed]
   pull_request:
     types: [opened, reopened, closed]
+  create:
+    tags: ['*']
 
 permissions:
   issues: write
   pull-requests: write
-  contents: write  # Added write permission for branch deletion
+  contents: write
 
 jobs:
-  get_events:
+  handle_events:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Manage events
+      - name: Manage different events
         uses: actions/github-script@v7
         with:
           script: |
+            const { eventName, payload } = context;
+
+            // Handle tag creation event (release)
+            if (eventName === 'create' && payload.ref_type === 'tag') {
+              const tagName = payload.ref;
+              
+              try {
+                const { data: release } = await github.rest.repos.getReleaseByTag({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  tag: tagName
+                });
+                
+                // Reactions allowed by GitHub API for releases
+                const reactions = ['+1', 'heart', 'hooray', 'rocket', 'eyes', 'laugh']
+                  .sort(() => Math.random() - 0.5)
+                  .slice(0, 2);
+                
+                console.log(`Adding reactions to release ${tagName}: ${reactions.join(', ')}`);
+                
+                // Add reactions in parallel
+                await Promise.all(reactions.map(content => 
+                  github.rest.reactions.createForRelease({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    release_id: release.id,
+                    content
+                  })
+                ));
+                
+                console.log('Reactions added successfully!');
+                
+              } catch (error) {
+                if (error.status === 404) {
+                  console.log(`No release found for tag ${tagName}, skipping reactions`);
+                } else {
+                  core.error(`Failed to add reactions: ${error}`);
+                  throw error;
+                }
+              }
+              return; // Exit script after handling tag
+            }
+
+            // Handle issues and pull request events
+            const isPR = eventName === 'pull_request';
+            const item = isPR ? payload.pull_request : payload.issue;
+
+            // Verify we have the necessary item
+            if (!item) {
+              console.log(`No item found for event: ${eventName}`);
+              return;
+            }
+
             const repoData = await github.rest.repos.get({
               owner: context.repo.owner,
               repo: context.repo.repo
             });
             const repoCreator = repoData.data.owner.login;
-            
-            const { eventName, payload } = context;
-            const isPR = eventName === 'pull_request';
-            const item = isPR ? payload.pull_request : payload.issue;
 
-            // Verify we have the repo creator
             if (!repoCreator) {
               core.error('Could not get repository creator');
               return;
@@ -116,7 +166,7 @@ jobs:
                 });
                 console.log(`Successfully deleted branch ${item.head.ref}`);
               } catch (error) {
-                if (error.status !== 422) { // Ignore "Reference does not exist" errors
+                if (error.status !== 422) {
                   core.error(`Failed to delete branch: ${error}`);
                 }
               }
