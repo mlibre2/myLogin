@@ -1,4 +1,3 @@
-#pragma compile(Icon, 'C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico')
 #pragma compile(ExecLevel, none)
 #pragma compile(UPX, false)
 #pragma compile(Compression, 0)
@@ -26,9 +25,8 @@
 #include <FileConstants.au3>		; FileOpen, FileWriteLine and FileClose
 #include <WinAPI.au3>				; Required _chkExplorer...
 
-; configuration
+; configurations
 Const $g_sVersion = "3.6"								; auto-incremental by workflows (compile)
-$g_sPassHash = ""
 Const $g_iTransparencyGUI = 150							; 0-255 (transparent-opaque) fullscreen
 Const $g_iTransparencyPassGUI = 180						; 0-255 (transparent-opaque) for window
 $g_iColorTxt = 0xFFFFFF									; Text color
@@ -37,11 +35,6 @@ $g_iBkColorPassGUI = 0xFFFFFF							; Background color (window)
 Const $g_iWidthPassGUI = 350							; Window width
 Const $g_iHeightPassGUI = 195							; Window height
 $g_iFailAttempts = 0									; Failed attempts (login)
-$g_iStyle = 0											; Color style (0=white/1=dark/2=aqua)
-$g_bDisableExplorer = True								; Disable Windows Explorer
-$g_bDisablePowerOff = False								; Disable system Shutdown button
-$g_bDisableReboot = False								; Disable system Reboot button
-$g_bDisableLockSession = False							; Disable system Lock button
 $g_sLanguage = _getOSLang()								; Get language (system)
 $g_oLangLookup = ObjCreate("Scripting.Dictionary")		; Optimize searches table hash O(1)
 Const $g_iPassMinLength = 2								; Define minimum password length
@@ -49,13 +42,22 @@ Const $g_iPassMaxLength = 30							; Define maximum password length
 Global $g_aButtonsParam[4]								; save/get button parameters
 Const $g_sName = "myLogin"								; Script name
 Const $g_sComp = ""								; for testing only
-$g_bAutoUpdater = False									; Enable automatic updater
-$g_bDisableBlur = False									; Turn off blur
 $g_iPID_upd = 0											; Saves the updater identifier
 
+; configuration INI
+$g_sPassHash = ""
+$g_bDisableExplorer = True								; Disable Windows Explorer
+$g_bDisablePowerOff = False								; Disable system Shutdown button
+$g_bDisableReboot = False								; Disable system Reboot button
+$g_bDisableLockSession = False							; Disable system Lock button
+$g_bDisableBlur = False									; Turn off blur
+$g_bDisableSound = False								; Disable system sounds
+$g_iStyle = 0											; Color style (0=white/1=dark/2=aqua)
+$g_bAutoUpdater = False									; Enable automatic updater
+
 ; preCache
-Enum $PassHash, $DisableExplorer, $DisablePowerOff, $DisableReboot, $DisableLockSession, $Style, $AutoUpdater, $DisableBlur
-Global $g_aCache[8] = [$g_sPassHash, $g_bDisableExplorer, $g_bDisablePowerOff, $g_bDisableReboot, $g_bDisableLockSession, $g_iStyle, $g_bAutoUpdater, $g_bDisableBlur]
+Enum $PassHash, $DisableExplorer, $DisablePowerOff, $DisableReboot, $DisableLockSession, $DisableBlur, $DisableSound, $Style, $AutoUpdater
+Global $g_aCache[] = [$g_sPassHash, $g_bDisableExplorer, $g_bDisablePowerOff, $g_bDisableReboot, $g_bDisableLockSession, $g_bDisableBlur, $g_bDisableSound, $g_iStyle, $g_bAutoUpdater]
 
 ; Load language files
 _LoadLanguage()
@@ -128,7 +130,7 @@ $idUnlock = GUICtrlCreateButton(-1, 290, 146, 40, 40, $BS_ICON)
 GUICtrlSetImage(-1, "shell32.dll", -177)
 GUICtrlSetTip(-1, _getLang("UNLOCK"))
 
-SoundPlay(@WindowsDir & "\media\tada.wav", $SOUND_NOWAIT)
+If Not $g_bDisableSound Then SoundPlay(@WindowsDir & "\media\tada.wav", $SOUND_NOWAIT)
 
 ; Center and show window
 WinMove($hPassGUI, "", (@DesktopWidth - $g_iWidthPassGUI) / 2, (@DesktopHeight - $g_iHeightPassGUI) / 2)
@@ -164,12 +166,13 @@ While 1
 			   _DisableButtons(True)
             EndIf
 
+			GUISetState(@SW_UNLOCK, $hPassGUI)
+
             ; Restore Windows Explorer if disabled
             If $g_bDisableExplorer Then _chkExplorer(False)
 
-            SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
+            If Not $g_bDisableSound Then SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
 
-			GUISetState(@SW_UNLOCK, $hPassGUI)
             Sleep(400)
 
             ExitLoop
@@ -187,19 +190,19 @@ While 1
          GUICtrlSetImage($idIcoPass, "imageres.dll", -101)
          GUISetBkColor(0xC10000, $hGUI) ; semi dark red
 
-		 SoundPlay(@WindowsDir & "\media\chord.wav", $SOUND_NOWAIT)
+		 GUISetState(@SW_UNLOCK, $hPassGUI)
+
+		 If Not $g_bDisableSound Then SoundPlay(@WindowsDir & "\media\chord.wav", $SOUND_NOWAIT)
 
 		 _DisableButtons(True)
-
-		 GUISetState(@SW_UNLOCK, $hPassGUI)
 
 		 If $g_iFailAttempts >= 3 Then Sleep(100 * $g_iFailAttempts)
 
 		 Sleep(300)
 
-		 GUISetState(@SW_LOCK, $hPassGUI)
-
 		 _DisableButtons(False)
+
+		 GUISetState(@SW_LOCK, $hPassGUI)
 
          GUICtrlSetImage($idIcoPass, "shell32.dll", -245)
          GUISetBkColor($g_iBkColorGUI, $hGUI)
@@ -241,13 +244,19 @@ While 1
    Sleep(50)	; save CPU :?
 WEnd
 
-; GUIDelete... exit
-If $g_bAutoUpdater And ProcessExists($g_iPID_upd) Then
-   ProcessClose($g_iPID_upd)
-   Run('cmd /c del /q "' & @ScriptDir & '\chk_online.cmd"', '', @SW_HIDE)
-EndIf
+; end Script
+GUIDelete()
 
 _Log("Ending...")
+
+If $g_bAutoUpdater And FileExists(@ScriptDir & "\chk_online.cmd") Then
+   If ProcessExists($g_iPID_upd) Then
+	  ProcessClose($g_iPID_upd)
+	  Sleep(25)
+   EndIf
+
+   Run('cmd /c ping -n 2 localhost >nul & del /q "' & @ScriptDir & '\chk_online.cmd"', '', @SW_HIDE)
+EndIf
 
 Exit
 
@@ -279,17 +288,16 @@ Func _chkExplorer($bParam)
 
    $aProcessList = ProcessList("explorer.exe")
 
-   If Not @error Then
-	  $sFunc = "Nt" & ($bParam ? "Suspend" : "Resume") & "Process"
-	  For $i = 1 To $aProcessList[0][0]
-		 $hProcess = _WinAPI_OpenProcess($PROCESS_SUSPEND_RESUME, False, $aProcessList[$i][1])
+   If @error Then Return
 
-		 If $hProcess Then
-			DllCall("ntdll.dll", "int", $sFunc, "ptr", $hProcess)
-			_WinAPI_CloseHandle($hProcess)
-		 EndIf
-	  Next
-   EndIf
+   For $i = 1 To $aProcessList[0][0]
+	  $hProcess = _WinAPI_OpenProcess($PROCESS_SUSPEND_RESUME, False, $aProcessList[$i][1])
+
+	  If $hProcess Then
+		 DllCall("ntdll.dll", "int", "Nt" & ($bParam ? "Suspend" : "Resume") & "Process", "ptr", $hProcess)
+		 _WinAPI_CloseHandle($hProcess)
+	  EndIf
+   Next
 EndFunc
 
 Func _ShutdownSys($sParam = "")
@@ -386,6 +394,12 @@ Func _ProcessParameters()
 		 Case "/DisableLockSession", "/dl"
 			$g_bDisableLockSession = True
 
+		 Case "/DisableBlur", "/db"
+			$g_bDisableBlur = True
+
+		 Case "/DisableSound", "/ds"
+			$g_bDisableSound = True
+
          Case "/Style", "/st"
             If $i + 1 <= $CmdLine[0] Then
                $g_iStyle = $CmdLine[$i + 1]
@@ -405,9 +419,6 @@ Func _ProcessParameters()
 		 Case "/AutoUpdater", "/au"
 			$g_bAutoUpdater = True
 			_chkOnlineAsync()
-
-		 Case "/DisableBlur", "/db"
-			$g_bDisableBlur = True
 
 		 Case "/Uninstall", "/ui"
 			; get configuration INI... we look for a preconfigured hash
@@ -646,10 +657,20 @@ Func _getOSLang()
 EndFunc
 
 Func _EnableBlur($hGUI)
-   ; get parameter and chk compatibility (Windows 8+)
-   If $g_bDisableBlur Or @OSBuild < 7850 Then
+   ; get parameter and chk compatibility
+   ; Windows 7 Build < 9200
+   If $g_bDisableBlur Or @OSBuild < 9200 Then
 	  WinSetTrans($hGUI, "", $g_iTransparencyGUI)
 	  Return False
+   EndIf
+
+   ; Windows 11
+   If @OSBuild >= 22000 Then
+      If RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "EnableTransparency") <> 1 Then
+		 _Log("Blur incompatible in build " & @OSBuild)
+		 WinSetTrans($hGUI, "", $g_iTransparencyGUI)
+		 Return False
+	  EndIf
    EndIf
 
    Const $ACCENT_ENABLE_BLURBEHIND = 3
@@ -694,7 +715,6 @@ Func _getUpdates()
    ; Initialize update check
    $sReleasesURL = "https://api.github.com/repos/mlibre2/" & $g_sName & $g_sComp & "/releases/latest"
 
-   _Log(_getLang("START_CHECK_NEW_UPDATE"))
    _Log(_getLang("CURRENT_VERSION", $g_sVersion))
 
    ; Get release information
@@ -736,7 +756,9 @@ Func _getUpdates()
    ; Prepare download
    $sUpdateTempDir = @ScriptDir & "\" & $g_sName & "Update\"
 
-   If Not DirCreate($sUpdateTempDir) Then
+   RunWait('cmd /c md "' & $sUpdateTempDir & '"', '', @SW_HIDE)
+
+   If Not FileExists($sUpdateTempDir) Then
       _Log("Error: " & _getLang("ERROR_CREATE_TMP_DIR"))
       Return
    EndIf
@@ -750,7 +772,7 @@ Func _getUpdates()
       Return
    EndIf
 
-   ; msg upd
+   ; upd msg
    GUISetState(@SW_LOCK, $hPassGUI)
    GUICtrlSetImage($idIcoPass, "imageres.dll", -185)
    GUICtrlSetData($idTxtPass, _getLang("UPDATING_MSG1"))
@@ -863,7 +885,7 @@ Func _getUpdates()
    _Log(_getLang("UPDATE_PREPARED"))
 
    GUICtrlSetData($idTxtPass, _getLang("MSG_DOWNLOADED", $g_sName, $sLatestVersion))
-   Sleep(5000)
+   Sleep(4000)
    _restoreGUI()
 
    ; We wait for the script to finish to update
@@ -914,6 +936,8 @@ Func _chkOnlineAsync()
 	  Return
    EndIf
 
+   _Log(_getLang("START_CHECK_NEW_UPDATE"))
+
    AdlibRegister("_chkOnlineAsync", 15000)
 
    $bStart = True
@@ -948,9 +972,7 @@ Func _Log($sMessage)
 	  $iFileSize = FileGetSize($sLogPath)
 
 	  ; Truncate file if it exceeds (50 MB = 52428800 bytes)
-	  If $iFileSize >= 52428800 Then
-		 RunWait('cmd /c echo. > "' & $sLogPath & '"', '', @SW_HIDE)
-	  EndIf
+	  If $iFileSize >= 52428800 Then RunWait('cmd /c echo. > "' & $sLogPath & '"', '', @SW_HIDE)
 
    EndIf
 
@@ -1013,6 +1035,7 @@ Func _Uninstall()
    If $bUninsExists Then
 	  Run($sUninsPath & " /silent /suppressmsgboxes", "", @SW_HIDE)
    Else
+
 	  Run("cmd /c mode con cols=80 lines=5 & color 3f & title Uninstaller & echo. & echo. " & _getLang("UNINSTALL_IN_PROGRESS", $g_sName) & " & echo. & ping -n 4 localhost >nul & echo. 100% & ping -n 2 localhost >nul")
 
 	  Run('cmd /c ping -n 1 localhost >nul & rd /s /q "' & @ScriptDir & '"', '', @SW_HIDE)
@@ -1041,7 +1064,7 @@ Func _ProcessConfig($bChk)
    ; We check if the parameter has already been set, if not we look for it in the configuration.
    If $g_aCache[$PassHash] = $g_sPassHash Then
 	  ; get hash
-	  $g_sPassHash = IniRead($sIniFile, "Config", "PassHash", $g_sPassHash)
+	  $g_sPassHash = IniRead($sIniFile, "config", "PassHash", $g_sPassHash)
 
 	  ; again chk
 	  If $bChk And $g_sPassHash = "" Then
@@ -1070,8 +1093,25 @@ Func _ProcessConfig($bChk)
 
    If Not $bChk Then Return ; It is only used to uninstall, we are not interested in the other values, just the hash.
 
+   ; read values ini and compare cache
+   If $g_aCache[$DisableExplorer] = $g_bDisableExplorer Then
+	  $g_bDisableExplorer = (IniRead($sIniFile, "config", "DisableExplorer", $g_bDisableExplorer ? "True" : "False") = "True")
+	  ; Upd state
+	  _chkExplorer($g_bDisableExplorer)
+   EndIf
+
+   If $g_aCache[$DisablePowerOff] = $g_bDisablePowerOff Then $g_bDisablePowerOff = (IniRead($sIniFile, "config", "DisablePowerOff", $g_bDisablePowerOff ? "True" : "False") = "True")
+
+   If $g_aCache[$DisableReboot] = $g_bDisableReboot Then $g_bDisableReboot = (IniRead($sIniFile, "config", "DisableReboot", $g_bDisableReboot ? "True" : "False") = "True")
+
+   If $g_aCache[$DisableLockSession] = $g_bDisableLockSession Then $g_bDisableLockSession = (IniRead($sIniFile, "config", "DisableLockSession", $g_bDisableLockSession ? "True" : "False") = "True")
+
+   If $g_aCache[$DisableBlur] = $g_bDisableBlur Then $g_bDisableBlur = (IniRead($sIniFile, "config", "DisableBlur", $g_bDisableBlur ? "True" : "False") = "True")
+
+   If $g_aCache[$DisableSound] = $g_bDisableSound Then $g_bDisableSound = (IniRead($sIniFile, "config", "DisableSound", $g_bDisableSound ? "True" : "False") = "True")
+
    If $g_aCache[$Style] = $g_iStyle Then
-	  $g_iStyle = Number(IniRead($sIniFile, "Config", "Style", $g_iStyle))
+	  $g_iStyle = Number(IniRead($sIniFile, "config", "Style", $g_iStyle))
 
 	  Switch $g_iStyle
 		 Case 1   ; dark
@@ -1084,26 +1124,11 @@ Func _ProcessConfig($bChk)
 	  If $g_iStyle < 0 Or $g_iStyle > 2 Then $g_iStyle = 0
    EndIf
 
-   ; read values ini and compare cache
-   If $g_aCache[$DisableExplorer] = $g_bDisableExplorer Then
-	  $g_bDisableExplorer = (IniRead($sIniFile, "Config", "DisableExplorer", $g_bDisableExplorer ? "True" : "False") = "True")
-	  ; Upd state
-	  _chkExplorer($g_bDisableExplorer)
-   EndIf
-
-   If $g_aCache[$DisablePowerOff] = $g_bDisablePowerOff Then $g_bDisablePowerOff = (IniRead($sIniFile, "Config", "DisablePowerOff", $g_bDisablePowerOff ? "True" : "False") = "True")
-
-   If $g_aCache[$DisableReboot] = $g_bDisableReboot Then $g_bDisableReboot = (IniRead($sIniFile, "Config", "DisableReboot", $g_bDisableReboot ? "True" : "False") = "True")
-
-   If $g_aCache[$DisableLockSession] = $g_bDisableLockSession Then $g_bDisableLockSession = (IniRead($sIniFile, "Config", "DisableLockSession", $g_bDisableLockSession ? "True" : "False") = "True")
-
    If $g_aCache[$AutoUpdater] = $g_bAutoUpdater Then
-	  $g_bAutoUpdater = (IniRead($sIniFile, "Config", "AutoUpdater", $g_bAutoUpdater ? "True" : "False") = "True")
+	  $g_bAutoUpdater = (IniRead($sIniFile, "config", "AutoUpdater", $g_bAutoUpdater ? "True" : "False") = "True")
 
 	  If $g_bAutoUpdater Then _chkOnlineAsync()
    EndIf
-
-   If $g_aCache[$DisableBlur] = $g_bDisableBlur Then $g_bDisableBlur = (IniRead($sIniFile, "Config", "DisableBlur", $g_bDisableBlur ? "True" : "False") = "True")
 EndFunc
 
 Func _UpdateConfig($sNewFilePath, $sOldFilePath)

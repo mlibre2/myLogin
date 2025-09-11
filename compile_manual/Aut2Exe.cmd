@@ -41,7 +41,7 @@ echo.
 echo.  Compiling...
 echo.
 
-start /wait "" "%_Aut2Exe_%" /in "%_fileName_%.au3" /out "%_fileName_%.exe" /comp 0 /nopack
+start /wait "" "%_Aut2Exe_%" /in "%_fileName_%.au3" /out "%_fileName_%.exe" /icon "Threat.contrast-white.ico" /comp 0 /nopack
 
 if exist "%_fileName_%.exe" (
     msg * Done! File compiled successfully.

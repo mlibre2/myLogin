@@ -47,16 +47,21 @@ Usa tu Hash para iniciar el programa:
   Con este parámetro podrás deshabilitar temporalmente el **Explorador de Windows**, impidiendo que no aparezca la barra de tareas, iconos del escritorio ni sea posible abrir el menú inicio.
   > Para mayor seguridad, está habilitado de forma predeterminada desde [v2.5](https://github.com/mlibre2/myLogin/releases/tag/2.5)
 
-
 - ``/DisablePowerOff`` ó ``/dp``
   
   Con este parámetro podrás deshabilitar el botón de Apagar **(disponible desde [v1.1](https://github.com/mlibre2/myLogin/releases/tag/1.1))**
 
-
 - ``/DisableReboot`` ó ``/dr``
   
   Con este parámetro podrás deshabilitar el botón de Reiniciar **(disponible desde [v1.1](https://github.com/mlibre2/myLogin/releases/tag/1.1))**
-  
+
+- ``/DisableBlur`` or ``/db``
+
+  Con este parámetro, puede desactivar el desenfoque de pantalla **(disponible desde [v2.8](https://github.com/mlibre2/myLogin/releases/tag/2.8))**
+
+- ``/DisableSound`` or ``/ds``
+
+  Con este parámetro, puede desactivar los sonidos emitidos **(disponible desde [v3.7](https://github.com/mlibre2/myLogin/releases/tag/3.7))**
 
 - ``/Style`` ó ``/st``
 
@@ -66,14 +71,13 @@ Usa tu Hash para iniciar el programa:
 
   ``MyLogin.exe /PassHash 0x9461E4B1394C6134483668F09CCF7B93 /Style 1``
 
-- ``/DisableBlur`` or ``/db``
+- ``/AutoUpdater`` or ``/au``
 
-  Con este parámetro, puede desactivar el desenfoque de pantalla **(disponible desde [v2.8](https://github.com/mlibre2/myLogin/releases/tag/2.8))**
-
+  Con este parámetro habilitas las actualizaciones automáticas cada vez que se inicia el programa, una vez descargado el paquete se instala en el próximo inicio. **(disponible desde [v2.2](https://github.com/mlibre2/myLogin/releases/tag/2.2))**
 
 Ejemplo con todas las opciones:
 
-  ``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dp /dr /dl /st 1 /au``
+``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dp /dr /dl /st 1 /au``
 
 ## ⚙️ Archivo [``config.ini``](https://github.com/mlibre2/myLogin/blob/main/src/config.ini)
 > [!WARNING]
@@ -88,9 +92,10 @@ DisableExplorer = True
 DisablePowerOff = False
 DisableReboot = False
 DisableLockSession = False
+DisableBlur = False
+DisableSound = False
 Style = 0
 AutoUpdater = False
-DisableBlur = False
 ```
 ## 🔌 ¿Cómo lo instalo?
 

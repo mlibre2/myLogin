@@ -57,6 +57,14 @@ Also check out this new feature: [``config.ini``](https://github.com/mlibre2/myL
 
   With this parameter, you can disable the Lock Session button **(available since [v2.0](https://github.com/mlibre2/myLogin/releases/tag/2.0))**
 
+- ``/DisableBlur`` or ``/db``
+
+  With this parameter, you can disable the screen blur **(available since [v2.8](https://github.com/mlibre2/myLogin/releases/tag/2.8))**
+
+- ``/DisableSound`` or ``/ds``
+
+  With this parameter, you can turn off the sounds emitted **(available since [v3.7](https://github.com/mlibre2/myLogin/releases/tag/3.7))**
+
 - ``/Style`` or ``/st``
 
   With this parameter, you can change the layout (0=Default White, 1=Dark, 2=Light Blue)
@@ -68,10 +76,6 @@ Also check out this new feature: [``config.ini``](https://github.com/mlibre2/myL
 - ``/AutoUpdater`` or ``/au``
 
   With this parameter, you enable automatic updates every time the program starts, once the package is downloaded, it is installed on the next start. **(available since [v2.2](https://github.com/mlibre2/myLogin/releases/tag/2.2))**
-
-- ``/DisableBlur`` or ``/db``
-
-  With this parameter, you can disable the screen blur **(available since [v2.8](https://github.com/mlibre2/myLogin/releases/tag/2.8))**
 
 Example with all options:
 
@@ -90,9 +94,10 @@ DisableExplorer = True
 DisablePowerOff = False
 DisableReboot = False
 DisableLockSession = False
+DisableBlur = False
+DisableSound = False
 Style = 0
 AutoUpdater = False
-DisableBlur = False
 ```
 ## 🔌 ¿How to install it?
 
