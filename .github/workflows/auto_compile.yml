@@ -15,11 +15,12 @@ on:
 
 jobs:
   compile:
-    runs-on: windows-2022 # Autoit tool does not support >=2025
+    runs-on: windows-2025
     timeout-minutes: 5    # Maximum compilation time
     env:
       SCRIPT_NAME: myLogin
-      SCRIPT_PATH: 'src\'
+      SCRIPT_PATH: 'src'
+      CRIPT_ICON: 'compile_manual/Threat.contrast-white.ico'
       ENABLE_SIGNPATH: 'true'
       ENABLE_VIRUSTOTAL: 'true'
       
@@ -30,16 +31,18 @@ jobs:
       with:
         token: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
         # Download only the necessary files
-        sparse-checkout: src/
+        sparse-checkout: |
+          ${{ env.SCRIPT_PATH }}/
+          ${{ env.SCRIPT_ICON }}
         # no requerid
         ssh-strict: false
         show-progress: false
             
 ######################################################################### get upd/version
 
-    - name: Get and update version
+    - name: Get/Update version AU3
       run: |
-        filePath="$GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}${{ env.SCRIPT_NAME }}.au3"
+        filePath="${{ env.SCRIPT_PATH }}\${{ env.SCRIPT_NAME }}.au3"
         
         # Verify that the file exists
         if [ ! -f "$filePath" ]; then
@@ -78,68 +81,57 @@ jobs:
         
         # Restore CRLF and write the file
         echo "$updatedContent" | sed 's/$/\r/' > "$filePath"
+
+        echo "::notice:: Old: ${old_version}"
+        echo "::warning:: New: $newVersion"
         
         # Export environment variables
         echo "OLD_VERSION=${old_version}" >> $GITHUB_ENV
         echo "NEW_VERSION=$newVersion" >> $GITHUB_ENV
       shell: bash
         
-######################################################################### autoit tool
-
-    - name: Setup AutoIt Tool
-      id: autoit_tool
-      uses: whatk233/setup-autoit-compiler-toolkit@v0.3
-      continue-on-error: true
-
 ######################################################################### autoit setup
 
-    - name: Fallback AutoIt Setup
-      if: steps.autoit_tool.outcome == 'failure'
+    - name: Download/Install AutoIt
       run: |
-        # Download and install AutoIt
-        $installerPath = "$env:TEMP\autoit-installer.exe"
-        Invoke-WebRequest -Uri "https://www.autoitscript.com/cgi-bin/getfile.pl?autoit3/autoit-v3-setup.exe" -OutFile $installerPath
-        Start-Process -FilePath $installerPath -ArgumentList "/S" -Wait
-        
-        # Verify AutoIt installation
-        $aut2exePath = "C:\Program Files (x86)\AutoIt3\Aut2Exe\Aut2Exe.exe"
-        echo "AUT2EXE=$aut2exePath" >> $env:GITHUB_ENV
-        
-        if (-not (Test-Path "$aut2exePath")) {
-          echo "::error::AutoIt installation failed"
-          exit 1
-        }
+        echo "Downloading AutoIt..."
+        curl -L -o "%tmp%\autoit.zip" "https://www.autoitscript.com/cgi-bin/getfile.pl?autoit3/autoit-v3.zip"
+        echo "Unzip AutoIt..."
+        7z x "%tmp%\autoit.zip" -o"%tmp%\"
+        set "_AUT2EXE_=%tmp%\install\Aut2Exe\Aut2Exe.exe"
+        echo ::warning::Env: %_AUT2EXE_%
+        echo _AUT2EXE_=%_AUT2EXE_% >> %GITHUB_ENV%
+      shell: cmd
         
 ######################################################################### compile au3/exe
 
-    - name: Compile with Aut2Exe
+    - name: Compile AU3 with Aut2Exe
       run: |
-        $scriptPath = "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}${{ env.SCRIPT_NAME }}.au3"
-        $outputPath = "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_NAME }}.exe"
-
-        # Verify script exists
-        if (-not (Test-Path $scriptPath)) {
-          echo "::error::Script not found at $scriptPath"
-          exit 1
-        }
+        echo "Verifying files... %SCRIPT_PATH%\%SCRIPT_NAME%.au3"
         
-        # Determine which Aut2Exe to use
-        $aut2exePath = if (Test-Path "$env:AUTOIT_COMPILER_TOOLKIT\Aut2Exe\Aut2exe.exe") {
-          "$env:AUTOIT_COMPILER_TOOLKIT\Aut2Exe\Aut2exe.exe"
-        } else {
-          "${{ env.AUT2EXE }}"
-        }
+        set scriptPath=%SCRIPT_PATH%\%SCRIPT_NAME%.au3
+        set outputPath=%SCRIPT_NAME%.exe
         
-        # Compile with detailed output
-        & "$aut2exePath" /in "$scriptPath" /out "$outputPath" /comp 0 /nopack | 
-        Where-Object { $_ -match "error" } | Write-Error
+        if not exist "%scriptPath%" (
+            echo ::error::Script not found at %scriptPath%
+            exit /b 1
+        )
         
-        # Verify compilation
-        if (-not (Test-Path $outputPath)) {
-          echo "::error::Compilation failed - No output file created"
-          exit 1
-        }
-        echo "::notice::Compilation successful - Executable size: $((Get-Item $outputPath).Length) bytes"
+        if not exist "%_AUT2EXE_%" (
+            echo ::error::FAIL: %_AUT2EXE_%
+            exit /b 1
+        )
+        
+        echo "Compiling... %scriptPath%"
+        "%_AUT2EXE_%" /in "%scriptPath%" /out "%outputPath%" /icon "%SCRIPT_ICON%" /comp 0 /nopack
+        
+        if not exist "%outputPath%" (
+            echo ::error::Compilation failed - No output file created
+            exit /b 1
+        )
+        
+        echo ::warning::Compilation successful %outputPath%
+      shell: cmd
 
 ######################################################################### SignPath executable
 
@@ -171,11 +163,42 @@ jobs:
           exit 1
         }
 
-######################################################################### Inno Setup installer
+######################################################################### Install Inno
 
-    - name: Create Inno Setup script
+    - name: Download/Install Inno Setup
       run: |
-        $issContent = @"
+        echo "Checking pre-installation..."
+
+        set "ISCC_PATH=%programfiles(x86)%\Inno Setup 6\ISCC.exe"
+        
+        if exist "%ISCC_PATH%" (
+          echo ::warning::Inno Setup is already installed
+          exit /b 0
+        )
+        
+        echo "Downloading Inno Setup..."
+
+        set "_url_=https://jrsoftware.org/download.php/is.exe?site=1"
+        set "_file_=innosetup.exe"
+
+        curl -L -o "%tmp%\%_file_%" "%_url_%"
+        
+        echo "Installing Inno Setup..."
+        "%tmp%\%_file_%" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
+        
+        if not exist "%ISCC_PATH%" (
+          echo "::error::Inno Setup installation failed"
+          exit 1
+        )
+        
+        echo ::warning::Inno Setup installed successfully!
+      shell: cmd
+
+######################################################################### ISS
+
+    - name: Generate ISS
+      run: |
+        cat << EOF > setup.iss
         [Setup]
         AppName=${{ env.SCRIPT_NAME }}
         AppVersion=${{ env.NEW_VERSION }}
@@ -195,7 +218,7 @@ jobs:
         OutputDir=.
         OutputBaseFilename=${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup
         SolidCompression=yes
-        SetupIconFile=C:\Windows\SystemApps\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy\Assets\Threat.contrast-white.ico
+        SetupIconFile=${{ env.SCRIPT_ICON }}
         ShowLanguageDialog=yes
 
         [Languages]
@@ -209,13 +232,13 @@ jobs:
         Name: "{app}"; Permissions: users-modify
         
         [Files]
-        Source: "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_NAME }}.exe"; DestDir: "{app}"; Flags: ignoreversion
-        Source: "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}config.ini"; DestDir: "{app}"; Flags: onlyifdoesntexist
-        Source: "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}lang\*"; DestDir: "{app}\lang"; Flags: recursesubdirs onlyifdoesntexist
+        Source: "${{ env.SCRIPT_NAME }}.exe"; DestDir: "{app}"; Flags: ignoreversion
+        Source: "${{ env.SCRIPT_PATH }}\config.ini"; DestDir: "{app}"; Flags: onlyifdoesntexist
+        Source: "${{ env.SCRIPT_PATH }}\lang\*"; DestDir: "{app}\lang"; Flags: recursesubdirs onlyifdoesntexist
 
         ; Temporary files for upgrade (only copied if it is an upgrade)
-        Source: "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}config.ini"; DestDir: "{app}\myLoginUpdate"; Flags: ignoreversion; Check: IsUpgrade
-        Source: "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}lang\*"; DestDir: "{app}\myLoginUpdate\lang"; Flags: ignoreversion recursesubdirs; Check: IsUpgrade
+        Source: "${{ env.SCRIPT_PATH }}\config.ini"; DestDir: "{app}\myLoginUpdate"; Flags: ignoreversion; Check: IsUpgrade
+        Source: "${{ env.SCRIPT_PATH }}\lang\*"; DestDir: "{app}\myLoginUpdate\lang"; Flags: ignoreversion recursesubdirs; Check: IsUpgrade
 
         [Icons]
         Name: "{commondesktop}\${{ env.SCRIPT_NAME }}"; Filename: "{app}\${{ env.SCRIPT_NAME }}.exe"; Comment: "${{ env.SCRIPT_NAME }}"; Tasks: desktopicon
@@ -288,14 +311,22 @@ jobs:
             end;
           end;
         end;
-        "@
-        Set-Content -Path "$env:GITHUB_WORKSPACE\setup.iss" -Value $issContent
+        EOF
+      shell: bash
+
+######################################################################### Compile Inno
 
     - name: Compile Inno Setup installer
-      uses: Minionguyjpro/Inno-Setup-Action@v1.2.7
-      with:
-        path: setup.iss
-        options: /Q
+      run: |
+        echo "Compiling Inno Setup..."
+        "%programfiles(x86)%\Inno Setup 6\ISCC.exe" /Q "setup.iss"
+         
+        if not exist "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe" (
+          echo "::error::Inno Setup compilation failed - No output file created"
+          exit /b 1
+        )
+        echo ::warning::Successful compilation ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe
+      shell: cmd
 
 ######################################################################### SignPath setup
 
@@ -331,39 +362,51 @@ jobs:
 
     - name: Sign setup with GPG
       run: |
-        # Import private key
-        echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+        echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import --passphrase "${{ secrets.GPG_PASSPHRASE }}"
         
-        # Sign the executable
-        gpg --batch --yes --pinentry-mode loopback `
-          --passphrase "${{ secrets.GPG_PASSPHRASE }}" `
-          --local-user "${{ secrets.GPG_KEY_ID }}" `
-          --output "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe.sig" `
+        gpg --batch --yes --pinentry-mode loopback \
+          --passphrase "${{ secrets.GPG_PASSPHRASE }}" \
+          --local-user "${{ secrets.GPG_KEY_ID }}" \
+          --output "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe.sig" \
           --detach-sig "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe"
         
-        # Verify the signature
+        if [ $? -ne 0 ]; then
+          echo "::error::GPG signature failed"
+          exit 1
+        fi
+        
         gpg --verify "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe.sig" "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe"
         
-        if ($LASTEXITCODE -ne 0) {
+        if [ $? -ne 0 ]; then
           echo "::error::GPG signature verification failed"
           exit 1
-        }
+        fi
+      shell: bash
+
+######################################################################### Prepare files
+
+    - name: Prepare files
+      run: |
+        mv "${{ env.SCRIPT_PATH }}\config.ini" .
+        mv "${{ env.SCRIPT_PATH }}\lang" lang\
+      shell: bash
         
 ######################################################################### compress files
 
     - name: Create ZIP Portable
-      run: 7z a -tzip -bd -mx=9 "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Portable.zip" "${{ env.SCRIPT_NAME }}.exe" "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}config.ini" "$env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}lang"
+      run: 7z a "${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Portable.zip" "${{ env.SCRIPT_NAME }}.exe" "config.ini" "lang"
+      shell: cmd
       
 ######################################################################### compress files (optional)
 
-    #- name: Upload artifact
-    #  uses: actions/upload-artifact@v4
-    #  with:
-    #    name: ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Portable
-    #    path: |
-    #      ${{ env.SCRIPT_NAME }}.exe
-    #      $env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}config.ini
-    #      $env:GITHUB_WORKSPACE\${{ env.SCRIPT_PATH }}lang/*.txt
+#    - name: Upload artifact
+#      uses: actions/upload-artifact@v4
+#      with:
+#        name: ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Portable
+#        path: |
+#          ${{ env.SCRIPT_NAME }}.exe
+#          config.ini
+#          lang\
 
 ######################################################################### config. git/gpg/commit/tag
 
@@ -381,7 +424,7 @@ jobs:
         git config --global user.email "112137590+mlibre2@users.noreply.github.com"
         
         # Commit changes
-        git add "${{ env.SCRIPT_PATH }}${{ env.SCRIPT_NAME }}.au3"
+        git add "${{ env.SCRIPT_PATH }}\${{ env.SCRIPT_NAME }}.au3"
         
         # -m = "actions-user" / -S = forces signing "redundant if commit.gpgsign=true, but useful for debugging"
         git commit -S -m "⬆️ Auto-update version to ${{ env.NEW_VERSION }} [skip ci]"
@@ -390,6 +433,7 @@ jobs:
         # Create tag (-a = "actions-user" / -s = create a tag signed with GPG key)
         git tag -s "${{ env.NEW_VERSION }}" -m "${{ env.NEW_VERSION }}"
         git push origin "${{ env.NEW_VERSION }}"
+      shell: bash
 
 ######################################################################### create Release
 
@@ -475,42 +519,31 @@ jobs:
 
     - name: Get/Save commit msg
       run: |
-        $commitMsg = "${{ github.event.head_commit.message }}"
-
-        # split a text string into multiple parts using line breaks as separators
-        $lines = $commitMsg -split "`n" # `n represents the line break character
-
-        # Cleaning up empty lines and whitespace
-        $lines = $lines | Where-Object { $_ -ne "" } | ForEach-Object { $_.Trim() }
-
-        #  debug...
-        #  $lines[0] = "Update myLogin.au3"
-        #  $lines[1] = "" (empty line)
-        #  $lines[2] = "Fixed special"
-        #  $lines[3] = "" (empty line)
-        #  $lines[4] = "- New update"
-        #  $lines[5] = "- Fixed lines"
+        msg=$(jq -r '.head_commit.message' <<< '${{ toJSON(github.event) }}')
         
-        # Initialize variables
-        $title = ""
-        $description = ""
+        # Debug: display original message with line numbers
+        echo "Original message:"
+        echo "$msg" | awk '{print NR ": " $0}'
+        echo "-------------------"
         
-        # Only proceed if there are enough lines
-        if ($lines -and $lines.Count -ge 3) {
-            $title = $lines[2]
-            
-            if ($lines.Count -ge 5) {
-                $description = $lines[4..($lines.Count-1)] -join "`n"
-            }
-        }
-
-        # Only set environment variables if title exists
-        if ($title) {
-            "COMMIT_TITLE=$($title -replace "`n", " ")" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-            "COMMIT_DESCRIPTION<<EOF" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-            $description | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-            "EOF" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-        }
+        # Extract line 3 as title
+        title=$(echo "$msg" | awk 'NR==3')
+        
+        # Extract from line 5 as description
+        description=$(echo "$msg" | awk 'NR>=5')
+        
+        # Debug: show what is extracted
+        echo "Title ext: '$title'"
+        echo "Descripción ext:"
+        echo "$description"
+        echo "-------------------"
+        
+        # Save to environment variables while maintaining Markdown formatting
+        echo "COMMIT_TITLE=${title}" >> $GITHUB_ENV
+        echo "COMMIT_DESCRIPTION<<EOF" >> $GITHUB_ENV
+        echo "$description" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+      shell: bash
         
 ######################################################################### update release notes
 
