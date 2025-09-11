@@ -20,7 +20,7 @@ jobs:
     env:
       SCRIPT_NAME: myLogin
       SCRIPT_PATH: 'src'
-      CRIPT_ICON: 'compile_manual/Threat.contrast-white.ico'
+      SCRIPT_ICON: 'compile_manual/Threat.contrast-white.ico'
       ENABLE_SIGNPATH: 'true'
       ENABLE_VIRUSTOTAL: 'true'
       
