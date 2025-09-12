@@ -65,7 +65,7 @@ _LoadLanguage()
 ;~ Check single instance prevent double execution
 If Not _Singleton($g_sName, 1) Then Exit MsgBox($MB_ICONWARNING + $MB_TOPMOST, @ScriptName, _getLang("PROGRAM_ALREADY_OPEN"), 3)
 
-_Log("Initiation...")
+_Debug("Initiation...")
 
 ; Pre-activated
 _chkExplorer($g_bDisableExplorer)
@@ -130,7 +130,7 @@ $idUnlock = GUICtrlCreateButton(-1, 290, 146, 40, 40, $BS_ICON)
 GUICtrlSetImage(-1, "shell32.dll", -177)
 GUICtrlSetTip(-1, _getLang("UNLOCK"))
 
-If Not $g_bDisableSound Then SoundPlay(@WindowsDir & "\media\tada.wav", $SOUND_NOWAIT)
+If Not $g_bDisableSound And _chkCompatibilitySoundPlay() Then SoundPlay(@WindowsDir & "\media\tada.wav", $SOUND_NOWAIT)
 
 ; Center and show window
 WinMove($hPassGUI, "", (@DesktopWidth - $g_iWidthPassGUI) / 2, (@DesktopHeight - $g_iHeightPassGUI) / 2)
@@ -148,7 +148,7 @@ While 1
    Switch GUIGetMsg()
 	  Case $GUI_EVENT_CLOSE, $idUnlock
          If _getHash(GUICtrlRead($idInput)) = $g_sPassHash Then
-			_Log("gui: " & _getLang("UNLOCKED"))
+			_Debug("gui: " & _getLang("UNLOCKED"))
 
 			GUISetState(@SW_LOCK, $hPassGUI) ; avoid flickering when making multiple changes
 
@@ -171,7 +171,7 @@ While 1
             ; Restore Windows Explorer if disabled
             If $g_bDisableExplorer Then _chkExplorer(False)
 
-            If Not $g_bDisableSound Then SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
+            If Not $g_bDisableSound And _chkCompatibilitySoundPlay() Then SoundPlay(@WindowsDir & "\media\ding.wav", $SOUND_NOWAIT)
 
             Sleep(400)
 
@@ -180,7 +180,7 @@ While 1
 
 		 $g_iFailAttempts += 1
 
-		 _Log("gui: " & _getLang("INCORRECT_PASSWORD", $g_iFailAttempts))
+		 _Debug("gui: " & _getLang("INCORRECT_PASSWORD", $g_iFailAttempts))
 
 		 GUISetState(@SW_LOCK, $hPassGUI)
 
@@ -192,7 +192,7 @@ While 1
 
 		 GUISetState(@SW_UNLOCK, $hPassGUI)
 
-		 If Not $g_bDisableSound Then SoundPlay(@WindowsDir & "\media\chord.wav", $SOUND_NOWAIT)
+		 If Not $g_bDisableSound And _chkCompatibilitySoundPlay() Then SoundPlay(@WindowsDir & "\media\chord.wav", $SOUND_NOWAIT)
 
 		 _DisableButtons(True)
 
@@ -218,14 +218,13 @@ While 1
 		 _ShutdownSys("/r")
 
 	  Case $idLockSession
-		 _Log("gui: " & _getLang("UNLOCK"))
+		 _Debug("gui: " & _getLang("UNLOCK"))
 
 		 _DisableButtons(True)
 
 		 If $g_bDisableExplorer Then _chkExplorer(False) ; We temporarily unlock... we avoid the black screen >=w8
 
-		 DllCall("user32.dll", "int", "LockWorkStation")
-		 Sleep(300)
+		 RunWait('cmd /c ping -n 1 localhost >nul & rundll32 user32.dll,LockWorkStation', '', @SW_HIDE)
 		 _DisableButtons(False)
 
    EndSwitch
@@ -247,7 +246,7 @@ WEnd
 ; end Script
 GUIDelete()
 
-_Log("Ending...")
+_Debug("Ending...")
 
 If $g_bAutoUpdater And FileExists(@ScriptDir & "\chk_online.cmd") Then
    If ProcessExists($g_iPID_upd) Then
@@ -301,7 +300,7 @@ Func _chkExplorer($bParam)
 EndFunc
 
 Func _ShutdownSys($sParam = "")
-   _Log("gui: " & _getLang($sParam = "/s" ? "SHUTDOWN" : "REBOOT"))
+   _Debug("gui: " & _getLang($sParam = "/s" ? "SHUTDOWN" : "REBOOT"))
 
    _DisableButtons(True)
    Run("cmd /c shutdown " & $sParam & " /f /t 0", "", @SW_HIDE)
@@ -667,7 +666,7 @@ Func _EnableBlur($hGUI)
    ; Windows 11
    If @OSBuild >= 22000 Then
       If RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "EnableTransparency") <> 1 Then
-		 _Log("Blur incompatible in build " & @OSBuild)
+		 _Debug("You have the transfer effect disabled, so blurring is not supported.")
 		 WinSetTrans($hGUI, "", $g_iTransparencyGUI)
 		 Return False
 	  EndIf
@@ -693,7 +692,7 @@ Func _EnableBlur($hGUI)
 
    ; Fallback to simple transparency if blur doesn't work
    If @error Or Not $aRet[0] Then
-	  _Log("Error: Blur incompatible in build " & @OSBuild)
+	  _Debug("Error: Blur incompatible in build " & @OSBuild)
 	  WinSetTrans($hGUI, "", $g_iTransparencyGUI)
 	  Return False
    EndIf
@@ -715,28 +714,28 @@ Func _getUpdates()
    ; Initialize update check
    $sReleasesURL = "https://api.github.com/repos/mlibre2/" & $g_sName & $g_sComp & "/releases/latest"
 
-   _Log(_getLang("CURRENT_VERSION", $g_sVersion))
+   _Debug(_getLang("CURRENT_VERSION", $g_sVersion))
 
    ; Get release information
    $sResponse = BinaryToString(InetRead($sReleasesURL, $INET_FORCEBYPASS))
    If @error Or $sResponse = "" Then
-      _Log("Error: " & _getLang("ERROR_NO_GET_UPDATE"))
+      _Debug("Error: " & _getLang("ERROR_NO_GET_UPDATE"))
       Return
    EndIf
 
    ; Parse version
    $aVersionMatch = StringRegExp($sResponse, '"tag_name":"v?([\d.]+)"', 1)
    If @error Or Not IsArray($aVersionMatch) Then
-      _Log("Error: " & _getLang("ERROR_INVALID_VERSION"))
+      _Debug("Error: " & _getLang("ERROR_INVALID_VERSION"))
       Return
    EndIf
 
    $sLatestVersion = $aVersionMatch[0]
-   _Log(_getLang("LATEST_VERSION", $sLatestVersion))
+   _Debug(_getLang("LATEST_VERSION", $sLatestVersion))
 
    ; Compare versions
    If $g_sVersion == $sLatestVersion Or _VersionCompare($g_sVersion, $sLatestVersion) > 0 Then
-	  _Log(_getLang("ALREADY_LATEST_VERSION"))
+	  _Debug(_getLang("ALREADY_LATEST_VERSION"))
       Return
    EndIf
 
@@ -746,12 +745,12 @@ Func _getUpdates()
    ; Get download URL
    $aUrlMatch = StringRegExp($sResponse, '"browser_download_url":"(https:[^"]+?' & $g_sName & '[^"]+?\' & ($bPortable ? ".zip" : "_Setup.exe") & ')"', 1)
    If @error Or Not IsArray($aUrlMatch) Then
-      _Log("Error: " & _getLang("ERROR_DOWNLOAD_URL"))
+      _Debug("Error: " & _getLang("ERROR_DOWNLOAD_URL"))
       Return
    EndIf
 
    $sDownloadURL = StringReplace($aUrlMatch[0], "\/", "/")
-   _Log(_getLang("DOWNLOAD_URL", $sDownloadURL))
+   _Debug(_getLang("DOWNLOAD_URL", $sDownloadURL))
 
    ; Prepare download
    $sUpdateTempDir = @ScriptDir & "\" & $g_sName & "Update\"
@@ -759,7 +758,7 @@ Func _getUpdates()
    RunWait('cmd /c md "' & $sUpdateTempDir & '"', '', @SW_HIDE)
 
    If Not FileExists($sUpdateTempDir) Then
-      _Log("Error: " & _getLang("ERROR_CREATE_TMP_DIR"))
+      _Debug("Error: " & _getLang("ERROR_CREATE_TMP_DIR"))
       Return
    EndIf
 
@@ -768,7 +767,7 @@ Func _getUpdates()
    ; Download with progress
    $hDownload = InetGet($sDownloadURL, $sFileExt, $INET_FORCEBYPASS, $INET_DOWNLOADBACKGROUND)
    If @error Then
-      _Log("Error: " & _getLang("ERROR_DOWNLOAD"))
+      _Debug("Error: " & _getLang("ERROR_DOWNLOAD"))
       Return
    EndIf
 
@@ -823,7 +822,7 @@ Func _getUpdates()
 
    ; Verify download
    If Not FileExists($sFileExt) Or FileGetSize($sFileExt) = 0 Then
-      _Log("Error: " & _getLang("ERROR_DOWNLOAD"))
+      _Debug("Error: " & _getLang("ERROR_DOWNLOAD"))
 	  _restoreGUI()
       Return
    EndIf
@@ -835,7 +834,7 @@ Func _getUpdates()
 	  ; Extract files
 	  $oShell = ObjCreate("Shell.Application")
 	  If Not IsObj($oShell) Then
-		 _Log("Error: " & _getLang("ERROR_EXTRACT_FILES"))
+		 _Debug("Error: " & _getLang("ERROR_EXTRACT_FILES"))
 		 _restoreGUI()
 		 Return
 	  EndIf
@@ -845,7 +844,7 @@ Func _getUpdates()
 	  $oShell = 0 ; free memory
 
 	  If Not IsObj($oZip) Or Not IsObj($oDest) Then
-		 _Log("Error: " & _getLang("ERROR_EXTRACT_FILES"))
+		 _Debug("Error: " & _getLang("ERROR_EXTRACT_FILES"))
 		 _restoreGUI()
 		 Return
 	  EndIf
@@ -857,32 +856,32 @@ Func _getUpdates()
 
 	  ; Verify extracted files
 	  If Not FileExists($sUpdateTempDir & @ScriptName) Or Not FileExists($sUpdateTempDir & "config.ini") Or Not FileExists($sUpdateTempDir & "lang\") Then
-		 _Log("Error: " & _getLang("ERROR_NO_VALID_FILES"))
+		 _Debug("Error: " & _getLang("ERROR_NO_VALID_FILES"))
 		 _restoreGUI()
 		 Return
 	  EndIf
 
 	  ; Move new executable/ini
-	  _Log(_getLang("COPY_NEW_FILE", @ScriptName))
+	  _Debug(_getLang("COPY_NEW_FILE", @ScriptName))
 
 	  ; Update config only if new keys exist
 	  If Not _UpdateConfig($sUpdateTempDir & "config.ini", @ScriptDir & "\config.ini") Then
-		 _Log("Error: " & _getLang("ERROR_COPY_NEW_FILE", "config.ini"))
+		 _Debug("Error: " & _getLang("ERROR_COPY_NEW_FILE", "config.ini"))
 		 _restoreGUI()
 		 Return
 	  EndIf
-	  _Log(_getLang("COPY_NEW_FILE", "config.ini"))
+	  _Debug(_getLang("COPY_NEW_FILE", "config.ini"))
 
 	  ; Update language file only if new keys exist
 	  If Not _UpdateConfig($sUpdateTempDir & "lang\" & $g_sLanguage & ".txt", @ScriptDir & "\lang\" & $g_sLanguage & ".txt") Then
-		 _Log("Error: " & _getLang("ERROR_COPY_NEW_LANG"))
+		 _Debug("Error: " & _getLang("ERROR_COPY_NEW_LANG"))
 		 _restoreGUI()
 		 Return
 	  EndIf
-	  _Log(_getLang("COPY_NEW_LANG"))
+	  _Debug(_getLang("COPY_NEW_LANG"))
    EndIf
 
-   _Log(_getLang("UPDATE_PREPARED"))
+   _Debug(_getLang("UPDATE_PREPARED"))
 
    GUICtrlSetData($idTxtPass, _getLang("MSG_DOWNLOADED", $g_sName, $sLatestVersion))
    Sleep(4000)
@@ -914,7 +913,7 @@ Func _chkOnlineAsync()
 
 		 AdlibUnRegister("_chkOnlineAsync")
 	  Else
-		 _Log(_getLang("ERROR_NO_INTERNET"))
+		 _Debug(_getLang("ERROR_NO_INTERNET"))
 	  EndIf
 
 	  Return
@@ -932,11 +931,11 @@ Func _chkOnlineAsync()
    $g_iPID_upd = Run('cmd /c ' & $sBatchContent & ' & "' & $sBatchFile & '"', '', @SW_HIDE)
 
    If @error Then
-	  _Log("Error: Could not run batch file " & $sBatchFile)
+	  _Debug("Error: Could not run batch file " & $sBatchFile)
 	  Return
    EndIf
 
-   _Log(_getLang("START_CHECK_NEW_UPDATE"))
+   _Debug(_getLang("START_CHECK_NEW_UPDATE"))
 
    AdlibRegister("_chkOnlineAsync", 15000)
 
@@ -960,31 +959,31 @@ Func _BytesToSize($iBytes, $bUnd)
    Return StringFormat("%.2f KB", $iBytes / 1024)
 EndFunc
 
-Func _Log($sMessage)
-   Static $iLogFail = -1
+Func _Debug($sMessage)
+   Static $iDebugFail = -1
 
-   If $sMessage = "" Or $iLogFail = 1 Then Return
+   If $sMessage = "" Or $iDebugFail = 1 Then Return
 
-   Static $sLogPath = @ScriptDir & "\Debug.log", $sDateTime = '[%date% - %time%]', $iFileSize = -1
+   Static $sDebugPath = @ScriptDir & "\Debug.log", $sDateTime = '[%date% - %time%]', $iFileSize = -1
 
    ; automatic rotation
    If $iFileSize = -1 Then
-	  $iFileSize = FileGetSize($sLogPath)
+	  $iFileSize = FileGetSize($sDebugPath)
 
 	  ; Truncate file if it exceeds (50 MB = 52428800 bytes)
-	  If $iFileSize >= 52428800 Then RunWait('cmd /c echo. > "' & $sLogPath & '"', '', @SW_HIDE)
+	  If $iFileSize >= 52428800 Then RunWait('cmd /c echo. > "' & $sDebugPath & '"', '', @SW_HIDE)
 
    EndIf
 
    ; Escape internal quotes and then wrap
    $sMessage = '"' & StringReplace($sMessage, '"', '""') & '"'
 
-   RunWait('cmd /c echo ' & $sDateTime & ' ' & $sMessage & ' >> "' & $sLogPath & '"', '', @SW_HIDE)
+   RunWait('cmd /c echo ' & $sDateTime & ' ' & $sMessage & ' >> "' & $sDebugPath & '"', '', @SW_HIDE)
 
    ; We check if you wrote for the first time
-   If $iLogFail = -1 Then
-	  $iLogFail = FileExists($sLogPath) ? 0 : 1
-	  If $iLogFail Then Return
+   If $iDebugFail = -1 Then
+	  $iDebugFail = FileExists($sDebugPath) ? 0 : 1
+	  If $iDebugFail Then Return
    EndIf
 
    ; Check if the message contains the word "error" (case insensitive)
@@ -993,7 +992,7 @@ Func _Log($sMessage)
 	  $sMessage = _getLang("REPORT", "https://github.com/mlibre2/" & $g_sName & $g_sComp & "/issues")
 	  $sMessage = '"' & StringReplace($sMessage, '"', '""') & '"'
 
-	  RunWait('cmd /c echo ' & $sDateTime & ' ' & $sMessage & ' >> "' & $sLogPath & '"', '', @SW_HIDE)
+	  RunWait('cmd /c echo ' & $sDateTime & ' ' & $sMessage & ' >> "' & $sDebugPath & '"', '', @SW_HIDE)
    EndIf
 EndFunc
 
@@ -1132,36 +1131,36 @@ Func _ProcessConfig($bChk)
 EndFunc
 
 Func _UpdateConfig($sNewFilePath, $sOldFilePath)
-   _Log("=== STARTING CONFIGURATION UPDATE ===")
-   _Log("New file: " & $sNewFilePath)
-   _Log("Existing file: " & $sOldFilePath)
+   _Debug("=== STARTING CONFIGURATION UPDATE ===")
+   _Debug("New file: " & $sNewFilePath)
+   _Debug("Existing file: " & $sOldFilePath)
 
    ; Check file existence
    If Not FileExists($sNewFilePath) Then
-      _Log("Error: New file does not exist")
+      _Debug("Error: New file does not exist")
       Return False
    EndIf
 
    ; Determine file type
    $bIsLangFile = (StringInStr($sOldFilePath, "\lang\") > 0)
-   _Log("File type: " & ($bIsLangFile ? "Language (.txt)" : "Configuration (.ini)"))
+   _Debug("File type: " & ($bIsLangFile ? "Language (.txt)" : "Configuration (.ini)"))
 
    ; If destination file doesn't exist, copy directly
    If Not FileExists($sOldFilePath) Then
-      _Log("Copying new file (didn't exist)")
+      _Debug("Copying new file (didn't exist)")
       Return Run('cmd /c move /y "' & $sNewFilePath & '" "' & $sOldFilePath & '"', '', @SW_HIDE)
    EndIf
 
    ; Read contents
    $sNewContent = FileRead($sNewFilePath)
    If @error Then
-      _Log("Error: Could not read new file")
+      _Debug("Error: Could not read new file")
       Return False
    EndIf
 
    $sCurrentContent = FileRead($sOldFilePath)
    If @error Then
-      _Log("Error: Could not read existing file")
+      _Debug("Error: Could not read existing file")
       Return False
    EndIf
 
@@ -1174,7 +1173,7 @@ Func _UpdateConfig($sNewFilePath, $sOldFilePath)
    Local $aAddedKeys[0], $aRemovedKeys[0]
 
    ; Process current file to get existing settings and exact formats
-   _Log("Processing current settings and formats...")
+   _Debug("Processing current settings and formats...")
    $aLines = StringSplit(StringStripCR($sCurrentContent), @LF)
    $sCurrentSection = $bIsLangFile ? $g_sLanguage : "config"
 
@@ -1210,7 +1209,7 @@ Func _UpdateConfig($sNewFilePath, $sOldFilePath)
    Next
 
    ; Process new file maintaining order and adding new keys
-   _Log("Processing new file structure...")
+   _Debug("Processing new file structure...")
    $aLines = StringSplit(StringStripCR($sNewContent), @LF)
    $sCurrentSection = $bIsLangFile ? $g_sLanguage : "config"
    $sMergedContent = ""
@@ -1283,21 +1282,21 @@ Func _UpdateConfig($sNewFilePath, $sOldFilePath)
 
    ; Log changes
    If UBound($aAddedKeys) > 0 Then
-      _Log("Added keys (" & UBound($aAddedKeys) & "):")
+      _Debug("Added keys (" & UBound($aAddedKeys) & "):")
       For $i = 0 To UBound($aAddedKeys) - 1
-         _Log("  " & ($i + 1) & ". " & $aAddedKeys[$i])
+         _Debug("  " & ($i + 1) & ". " & $aAddedKeys[$i])
       Next
    EndIf
 
    If UBound($aRemovedKeys) > 0 Then
-      _Log("Removed keys (" & UBound($aRemovedKeys) & "):")
+      _Debug("Removed keys (" & UBound($aRemovedKeys) & "):")
       For $i = 0 To UBound($aRemovedKeys) - 1
-         _Log("  " & ($i + 1) & ". " & $aRemovedKeys[$i])
+         _Debug("  " & ($i + 1) & ". " & $aRemovedKeys[$i])
       Next
    EndIf
 
    If Not $bChangesFound Then
-      _Log("No changes found between files")
+      _Debug("No changes found between files")
       $oCurrentSettings = 0
       $oNewSettings = 0
       $oOriginalFormats = 0
@@ -1306,10 +1305,10 @@ Func _UpdateConfig($sNewFilePath, $sOldFilePath)
    EndIf
 
    ; Save changes
-   _Log("Saving changes to: " & $sOldFilePath)
+   _Debug("Saving changes to: " & $sOldFilePath)
    $hFile = FileOpen($sOldFilePath, $FO_OVERWRITE + $FO_UTF8_NOBOM)
    If $hFile = -1 Then
-      _Log("Error: Could not open file for writing")
+      _Debug("Error: Could not open file for writing")
       $oCurrentSettings = 0
       $oNewSettings = 0
       $oOriginalFormats = 0
@@ -1320,12 +1319,18 @@ Func _UpdateConfig($sNewFilePath, $sOldFilePath)
    FileWrite($hFile, StringStripWS($sMergedContent, $STR_STRIPTRAILING))
    FileClose($hFile)
 
-   _Log("File updated successfully")
-   _Log("=== UPDATE COMPLETED ===")
+   _Debug("File updated successfully")
+   _Debug("=== UPDATE COMPLETED ===")
 
    $oCurrentSettings = 0
    $oNewSettings = 0
    $oOriginalFormats = 0
    $oAllSections = 0
    Return True
+EndFunc
+
+Func _chkCompatibilitySoundPlay()
+   Static $bIsCompatible = -1
+   If $bIsCompatible = -1 Then $bIsCompatible = StringReplace(@AutoItVersion, ".", "") > 33120 ? True : False
+   Return $bIsCompatible
 EndFunc
