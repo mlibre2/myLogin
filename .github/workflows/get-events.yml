@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Manage different events
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { eventName, payload } = context;
