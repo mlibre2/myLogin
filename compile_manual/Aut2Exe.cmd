@@ -1,4 +1,18 @@
 @echo off
+setlocal enabledelayedexpansion
+
+:: --- check operating system version
+for /f "tokens=3 delims=." %%b in ('ver') do set /a "win_build=%%b" 2>nul
+
+:: --- Open old console in Windows 11
+if !win_build! geq 22000 (
+	if not exist "%~dp0conhost.lock" (
+		echo. > "%~dp0conhost.lock" && start /b conhost "%~f0" & exit
+	) else (
+		del /q "%~dp0conhost.lock" 2>nul
+	)
+)
+
 mode con cols=80 lines=10
 color 3f
 title Auto2Exe Compiler
