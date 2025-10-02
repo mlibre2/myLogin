@@ -8,6 +8,11 @@ on:
   create:
     tags: ['*']
 
+permissions:
+  issues: write
+  pull-requests: write
+  contents: write
+
 jobs:
   handle_events:
     runs-on: ubuntu-latest
@@ -16,7 +21,7 @@ jobs:
       - name: Manage different events
         uses: actions/github-script@v8
         with:
-          github-token: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { eventName, payload } = context;
 
