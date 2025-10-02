@@ -121,8 +121,12 @@ jobs:
                 });
                 console.log(`Successfully assigned to @${repoCreator}`);
               } catch (error) {
-                core.error(`Assignment error: ${error}`);
-                throw error;
+                if (error.status === 403) {
+                  console.log(`Cannot assign issues: Missing permissions. Skipping assignment.`);
+                } else {
+                  core.error(`Assignment error: ${error}`);
+                  throw error;
+                }
               }
             }
 
