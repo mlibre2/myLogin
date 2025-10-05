@@ -248,13 +248,9 @@ GUIDelete()
 
 _Debug("Ending...")
 
-If $g_bAutoUpdater And FileExists(@ScriptDir & "\chk_online.cmd") Then
-   If ProcessExists($g_iPID_upd) Then
-	  ProcessClose($g_iPID_upd)
-	  Sleep(25)
-   EndIf
-
-   Run('cmd /c ping -n 2 localhost >nul & del /q "' & @ScriptDir & '\chk_online.cmd"', '', @SW_HIDE)
+If $g_bAutoUpdater And ProcessExists($g_iPID_upd) Then
+   ProcessClose($g_iPID_upd)
+   Run('cmd /c ping -n 1 localhost >nul & del /q "' & @ScriptDir & '\chk_online.cmd"', '', @SW_HIDE)
 EndIf
 
 Exit
@@ -907,13 +903,12 @@ Func _chkOnlineAsync()
    Static $bStart, $sBatchFile = @ScriptDir & "\chk_online.cmd"
 
    If $bStart Then
-	  If Not FileExists($sBatchFile) Then
-
+	  If ProcessExists($g_iPID_upd) Then
+		 _Debug(_getLang("ERROR_NO_INTERNET"))
+	  Else
 		 _getUpdates()
 
 		 AdlibUnRegister("_chkOnlineAsync")
-	  Else
-		 _Debug(_getLang("ERROR_NO_INTERNET"))
 	  EndIf
 
 	  Return
