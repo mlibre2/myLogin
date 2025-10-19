@@ -205,7 +205,7 @@ jobs:
         VersionInfoVersion=${{ env.NEW_VERSION }}.0.0
         AppVerName=${{ env.SCRIPT_NAME }} v${{ env.NEW_VERSION }}
         AppComments=${{ env.SCRIPT_NAME }} - Inno Setup
-        AppCopyright=© by mlibre2 - Open source project on GitHub
+        AppCopyright=© by mlibre2
         DefaultDirName={autopf}\${{ env.SCRIPT_NAME }}
         DefaultGroupName=${{ env.SCRIPT_NAME }}
         AppPublisher=GitHub@mlibre2
@@ -477,11 +477,12 @@ jobs:
                                            -Headers $headers `
                                            -Body $postParams
                                            
-              # Process the response
+              # Process the response - extract the URL ID from the analysis ID
               $analysisId = $response.data.id
     
-              # Removes 'u-' prefix and numeric suffix
-              $urlId = $analysisId -replace '^u-|-\d+$'
+              # Extract only the base64 URL ID without the 'u-' prefix and numeric suffix
+              # The analysis ID format is: u-<base64_id>-<timestamp>
+              $urlId = $analysisId -replace '^u-' -replace '-[^-]+$', ''
               
               # Build report URL
               $VT_GUI_URL = "https://www.virustotal.com/gui/url/$urlId"
@@ -503,11 +504,11 @@ jobs:
             }
         }
         
-        # Analyze the first
+        # Analyze the first URL
         $ZIP_URL = "https://github.com/${{ github.repository }}/releases/download/${{ env.NEW_VERSION }}/${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Portable.zip"
         $zipResult = Analyze-VirusTotalURL -UrlToAnalyze $ZIP_URL
         
-        # Analyze the second
+        # Analyze the second URL
         $SETUP_URL = "https://github.com/${{ github.repository }}/releases/download/${{ env.NEW_VERSION }}/${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe"
         $setupResult = Analyze-VirusTotalURL -UrlToAnalyze $SETUP_URL
         
