@@ -1,10 +1,12 @@
 #pragma compile(ExecLevel, none)
 #pragma compile(UPX, false)
+#pragma compile(AutoItExecuteAllowed, false)
 #pragma compile(Compression, 0)
+#pragma compile(Comments, 'Open source project on GitHub')
 #pragma compile(CompanyName, 'mlibre2')
 #pragma compile(FileDescription, Secure lock screen)
 #pragma compile(FileVersion, 3.9)					; auto-incremental by workflows (compile)
-#pragma compile(LegalCopyright, © by mlibre2 - Open source project on GitHub)
+#pragma compile(LegalCopyright, © by mlibre2)
 #pragma compile(OriginalFilename, myLogin.exe)
 #pragma compile(ProductName, myLogin)
 #pragma compile(ProductVersion, 3.9)				; auto-incremental by workflows (compile)
@@ -224,7 +226,7 @@ While 1
 
 		 If $g_bDisableExplorer Then _chkExplorer(False) ; We temporarily unlock... we avoid the black screen >=w8
 
-		 RunWait('cmd /c ping -n 1 localhost >nul & rundll32 user32.dll,LockWorkStation', '', @SW_HIDE)
+		 RunWait('cmd /c ping -n 1 localhost>nul && rundll32 user32.dll,LockWorkStation', '', @SW_HIDE)
 		 _DisableButtons(False)
 
    EndSwitch
@@ -250,7 +252,7 @@ _Debug("Ending...")
 
 If $g_bAutoUpdater And ProcessExists($g_iPID_upd) Then
    ProcessClose($g_iPID_upd)
-   Run('cmd /c ping -n 1 localhost >nul & del /q "' & @ScriptDir & '\chk_online.cmd"', '', @SW_HIDE)
+   Run('cmd /c ping -n 1 localhost>nul && del /q "' & @ScriptDir & '\chk_online.cmd"', '', @SW_HIDE)
 EndIf
 
 Exit
@@ -886,15 +888,15 @@ Func _getUpdates()
    ; We wait for the script to finish to update
    $sBatchFile = $sUpdateTempDir & "chk_process.cmd"
 
-   $sBatchContent = 'echo :mychk > "' & $sBatchFile & '" & ' & _
-					'echo tasklist /fi "imagename eq ' & @ScriptName & '" ^| find ":" ^>nul >> "' & $sBatchFile & '" & ' & _
-					'echo if errorlevel 1 ( >> "' & $sBatchFile & '" & ' & _
-					'echo ping -n 2 localhost ^>nul >> "' & $sBatchFile & '" & ' & _
-					'echo goto mychk >> "' & $sBatchFile & '" & ' & _
-					'echo ) else ( >> "' & $sBatchFile & '" & ' & _
-					'echo ' & ($bPortable ? 'move /y "' & $sUpdateTempDir & @ScriptName & '" "' & @ScriptDir & '\' & @ScriptName & '"' : 'start "" "' & $sFileExt & '" /silent') & ' >> "' & $sBatchFile & '" & ' & _
-					'echo rd /s /q "' & $sUpdateTempDir & '" >> "' & $sBatchFile & '" & ' & _
-					'echo ) >> "' & $sBatchFile & '"'
+   $sBatchContent = '(echo :mychk)>"' & $sBatchFile & '" & ' & _
+					'(echo tasklist /fi "imagename eq ' & @ScriptName & '" ^| find ":" ^>nul)>>"' & $sBatchFile & '" & ' & _
+					'(echo if errorlevel 1 ^()>>"' & $sBatchFile & '" & ' & _
+					'(echo ping -n 2 localhost^>nul)>>"' & $sBatchFile & '" & ' & _
+					'(echo goto mychk)>>"' & $sBatchFile & '" & ' & _
+					'(echo ^) else ^()>>"' & $sBatchFile & '" & ' & _
+					'(echo ' & ($bPortable ? 'move /y "' & $sUpdateTempDir & @ScriptName & '" "' & @ScriptDir & '\' & @ScriptName & '"' : 'start "" "' & $sFileExt & '" /silent') & ')>>"' & $sBatchFile & '" & ' & _
+					'(echo rd /s /q "' & $sUpdateTempDir & '")>>"' & $sBatchFile & '" & ' & _
+					'(echo ^))>>"' & $sBatchFile & '"'
 
    Run('cmd /c ' & $sBatchContent & ' & "' & $sBatchFile & '"', '', @SW_HIDE)
 EndFunc
@@ -914,14 +916,14 @@ Func _chkOnlineAsync()
 	  Return
    EndIf
 
-   $sBatchContent = 'echo :mychk > "' & $sBatchFile & '" & ' & _
-					'echo ping 1.1.1.1 ^| find "TTL=" ^>nul >> "' & $sBatchFile & '" & ' & _
-					'echo if errorlevel 1 ( >> "' & $sBatchFile & '" & ' & _
-					'echo ping -n 5 localhost ^>nul >> "' & $sBatchFile & '" & ' & _
-					'echo goto mychk >> "' & $sBatchFile & '" & ' & _
-					'echo ) else ( >> "' & $sBatchFile & '" & ' & _
-					'echo del /q "' & $sBatchFile & '" >> "' & $sBatchFile & '" & ' & _
-					'echo ) >> "' & $sBatchFile & '"'
+   $sBatchContent = '(echo :mychk)>"' & $sBatchFile & '" & ' & _
+					'(echo ping 1.1.1.1 ^| find "TTL=" ^>nul)>>"' & $sBatchFile & '" & ' & _
+					'(echo if errorlevel 1 ^()>>"' & $sBatchFile & '" & ' & _
+					'(echo ping -n 5 localhost^>nul)>>"' & $sBatchFile & '" & ' & _
+					'(echo goto mychk)>>"' & $sBatchFile & '" & ' & _
+					'(echo ^) else ^()>>"' & $sBatchFile & '" & ' & _
+					'(echo del /q "' & $sBatchFile & '")>>"' & $sBatchFile & '" & ' & _
+					'(echo ^))>>"' & $sBatchFile & '"'
 
    $g_iPID_upd = Run('cmd /c ' & $sBatchContent & ' & "' & $sBatchFile & '"', '', @SW_HIDE)
 
@@ -966,14 +968,14 @@ Func _Debug($sMessage)
 	  $iFileSize = FileGetSize($sDebugPath)
 
 	  ; Truncate file if it exceeds (50 MB = 52428800 bytes)
-	  If $iFileSize >= 52428800 Then RunWait('cmd /c echo. > "' & $sDebugPath & '"', '', @SW_HIDE)
+	  If $iFileSize >= 52428800 Then RunWait('cmd /c (echo. )>"' & $sDebugPath & '"', '', @SW_HIDE)
 
    EndIf
 
    ; Escape internal quotes and then wrap
    $sMessage = '"' & StringReplace($sMessage, '"', '""') & '"'
 
-   RunWait('cmd /c echo ' & $sDateTime & ' ' & $sMessage & ' >> "' & $sDebugPath & '"', '', @SW_HIDE)
+   RunWait('cmd /c (echo ' & $sDateTime & ' ' & $sMessage & ')>>"' & $sDebugPath & '"', '', @SW_HIDE)
 
    ; We check if you wrote for the first time
    If $iDebugFail = -1 Then
@@ -987,7 +989,7 @@ Func _Debug($sMessage)
 	  $sMessage = _getLang("REPORT", "https://github.com/mlibre2/" & $g_sName & $g_sComp & "/issues")
 	  $sMessage = '"' & StringReplace($sMessage, '"', '""') & '"'
 
-	  RunWait('cmd /c echo ' & $sDateTime & ' ' & $sMessage & ' >> "' & $sDebugPath & '"', '', @SW_HIDE)
+	  RunWait('cmd /c (echo ' & $sDateTime & ' ' & $sMessage & ')>>"' & $sDebugPath & '"', '', @SW_HIDE)
    EndIf
 EndFunc
 
@@ -1030,9 +1032,9 @@ Func _Uninstall()
 	  Run($sUninsPath & " /silent /suppressmsgboxes", "", @SW_HIDE)
    Else
 
-	  Run("cmd /c mode con cols=80 lines=5 & color 3f & title Uninstaller & echo. & echo. " & _getLang("UNINSTALL_IN_PROGRESS", $g_sName) & " & echo. & ping -n 4 localhost >nul & echo. 100% & ping -n 2 localhost >nul")
+	  Run("cmd /c mode con cols=80 lines=5 & color 3f & title Uninstaller & echo. & echo. " & _getLang("UNINSTALL_IN_PROGRESS", $g_sName) & " & echo. & ping -n 4 localhost>nul && echo. 100% & ping -n 2 localhost>nul")
 
-	  Run('cmd /c ping -n 1 localhost >nul & rd /s /q "' & @ScriptDir & '"', '', @SW_HIDE)
+	  Run('cmd /c ping -n 1 localhost>nul && rd /s /q "' & @ScriptDir & '"', '', @SW_HIDE)
    EndIf
 
    Exit
