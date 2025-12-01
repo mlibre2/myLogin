@@ -27,7 +27,7 @@ jobs:
     steps:
 ######################################################################### checkout
     - name: Checkout code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         token: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
         # Download only the necessary files
