@@ -25,7 +25,7 @@
 #include <StringConstants.au3>		; Using String
 #include <Inet.au3>					; Download updates
 #include <FileConstants.au3>		; FileOpen, FileWriteLine and FileClose
-#include <WinAPI.au3>				; Required _chkExplorer...
+#include <WinAPI.au3>				; Required _chkExplorer()...
 
 ; configurations
 Const $g_sVersion = "4.1"								; auto-incremental by workflows (compile)
@@ -1331,3 +1331,4 @@ Func _chkCompatibilitySoundPlay()
    If $bIsCompatible = -1 Then $bIsCompatible = StringReplace(@AutoItVersion, ".", "") > 33120 ? True : False
    Return $bIsCompatible
 EndFunc
+
