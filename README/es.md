@@ -36,7 +36,7 @@ Usa tu Hash para iniciar el programa:
    - Si no has generado un hash, no podrás acceder al programa, ya que es necesario para desbloquearlo.
    - La contraseña que debes usar para desbloquearlo, es la original (la que ingresaste al crear el hash), no el hash cifrado.
 
-  Consulta también esta nueva función: [``config.ini``](https://github.com/mlibre2/myLogin/blob/main/README/es.md#%EF%B8%8F-archivo-ini)
+  Consulta también esta nueva función: [``config.ini``](https://github.com/mlibre2/myLogin/blob/main/README/es.md#%EF%B8%8F-archivo-configini)
 
 > [!NOTE]
 > 🔧 Los siguientes parámetros son opcionales, no son requeridos.
@@ -44,7 +44,7 @@ Usa tu Hash para iniciar el programa:
 
 - ``/DisableExplorer`` ó ``/de``
 
-  Con este parámetro podrás deshabilitar temporalmente el **Explorador de Windows**, impidiendo que no aparezca la barra de tareas, iconos del escritorio ni sea posible abrir el menú inicio.
+  Con este parámetro, puede desactivar temporalmente el **Explorador de Windows**, deshabilitando la barra de tareas, los iconos del escritorio y el menú Inicio.
   > Para mayor seguridad, está habilitado de forma predeterminada desde [v2.5](https://github.com/mlibre2/myLogin/releases/tag/2.5)
 
 - ``/DisablePowerOff`` ó ``/dp``
@@ -54,6 +54,24 @@ Usa tu Hash para iniciar el programa:
 - ``/DisableReboot`` ó ``/dr``
   
   Con este parámetro podrás deshabilitar el botón de Reiniciar **(disponible desde [v1.1](https://github.com/mlibre2/myLogin/releases/tag/1.1))**
+
+- ``/DisableLockSession`` or ``/dl``
+
+  Con este parámetro, puede desactivar el botón Bloquear sesión **(disponible desde [v2.0](https://github.com/mlibre2/myLogin/releases/tag/2.0))**
+
+- ``/HideButton`` or ``/hb``
+
+  Con este parámetro se ocultan botones específicos (3 dígitos: Apagar/Reiniciar/Bloquear) **(disponible desde [v4.1](https://github.com/mlibre2/myLogin/releases/tag/4.1))** 
+    - Formato: Tres dígitos (0=visible, 1=oculto) 
+      - Primer dígito: botón de apagado 
+      - Segundo dígito: botón de reinicio 
+      - Tercer dígito: Botón de bloqueo de sesión
+      
+  Ejemplos:
+    - 000 = Todo visible (predeterminado)
+    - 100 = Ocultar sólo Apagar
+    - 010 = Ocultar sólo Restablecer
+    - 110 = Apagado y reinicio ocultos
 
 - ``/DisableBlur`` or ``/db``
 
@@ -75,9 +93,21 @@ Usa tu Hash para iniciar el programa:
 
   Con este parámetro habilitas las actualizaciones automáticas cada vez que se inicia el programa, una vez descargado el paquete se instala en el próximo inicio. **(disponible desde [v2.2](https://github.com/mlibre2/myLogin/releases/tag/2.2))**
 
-Ejemplo con todas las opciones:
+📝 **Ejemplo de uso**
+
+Con todas las opciones:
 
 ``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dp /dr /dl /st 1 /au``
+
+O
+
+``myLogin.exe /PassHash [tu_hash] /HideButton 110 /DisableSound``
+- Establecer contraseña
+- Ocultar botones de Apagar y Reiniciar
+- Apagar sonidos
+
+> [!NOTE]
+Si el botón está oculto con ``/HideButton``, esta opción ``/DisablePowerOff``, ``/DisableReboot`` o ``/DisableLockSession`` se ignora.
 
 ## ⚙️ Archivo ``INI``
 > [!WARNING]
@@ -92,6 +122,7 @@ DisableExplorer = True
 DisablePowerOff = False
 DisableReboot = False
 DisableLockSession = False
+HideButton = 000
 DisableBlur = False
 DisableSound = False
 Style = 0
