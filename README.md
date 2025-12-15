@@ -59,7 +59,7 @@ Also check out this new feature: [``config.ini``](https://github.com/mlibre2/myL
 
 - ``/HideButton`` or ``/hb``
 
-  With this parameter hide specific buttons (3 digits: Shut down/Restart/Lock) **(available since [v4.1](https://github.com/mlibre2/myLogin/releases/tag/4.1))**
+  With this parameter hide specific buttons (3 digits: Shut down/Restart/Lock) **(available since [v4.4](https://github.com/mlibre2/myLogin/releases/tag/4.4))**
     - Format: Three digits (0=visible, 1=hidden)
       - First digit: Power Off Button
       - Second digit: Reset Button
