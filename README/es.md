@@ -61,7 +61,7 @@ Usa tu Hash para iniciar el programa:
 
 - ``/HideButton`` or ``/hb``
 
-  Con este parámetro se ocultan botones específicos (3 dígitos: Apagar/Reiniciar/Bloquear) **(disponible desde [v4.1](https://github.com/mlibre2/myLogin/releases/tag/4.1))** 
+  Con este parámetro se ocultan botones específicos (3 dígitos: Apagar/Reiniciar/Bloquear) **(disponible desde [v4.4](https://github.com/mlibre2/myLogin/releases/tag/4.4))** 
     - Formato: Tres dígitos (0=visible, 1=oculto) 
       - Primer dígito: botón de apagado 
       - Segundo dígito: botón de reinicio 
