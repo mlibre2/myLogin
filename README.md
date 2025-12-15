@@ -42,7 +42,7 @@ Also check out this new feature: [``config.ini``](https://github.com/mlibre2/myL
 
 - ``/DisableExplorer`` or ``/de``
   
-  With this parameter, you can temporarily disable **Windows Explorer**, preventing the taskbar, desktop icons, and the ability to open the Start menu.
+  With this parameter, you can temporarily disable **Windows Explorer**, disabling the taskbar, desktop icons and the Start menu.
   > For added security, it is enabled by default since [v2.5](https://github.com/mlibre2/myLogin/releases/tag/2.5)
 
 - ``/DisablePowerOff`` or ``/dp``
@@ -56,6 +56,20 @@ Also check out this new feature: [``config.ini``](https://github.com/mlibre2/myL
 - ``/DisableLockSession`` or ``/dl``
 
   With this parameter, you can disable the Lock Session button **(available since [v2.0](https://github.com/mlibre2/myLogin/releases/tag/2.0))**
+
+- ``/HideButton`` or ``/hb``
+
+  With this parameter hide specific buttons (3 digits: Shut down/Restart/Lock) **(available since [v4.1](https://github.com/mlibre2/myLogin/releases/tag/4.1))**
+    - Format: Three digits (0=visible, 1=hidden)
+      - First digit: Power Off Button
+      - Second digit: Reset Button
+      - Third digit: Lock Session Button
+      
+  Examples:
+    - 000 = All visible (default)
+    - 100 = Hide only Turn off
+    - 010 = Hide only Reset
+    - 110 = Hidden Shutdown and Restart
 
 - ``/DisableBlur`` or ``/db``
 
@@ -77,9 +91,22 @@ Also check out this new feature: [``config.ini``](https://github.com/mlibre2/myL
 
   With this parameter, you enable automatic updates every time the program starts, once the package is downloaded, it is installed on the next start. **(available since [v2.2](https://github.com/mlibre2/myLogin/releases/tag/2.2))**
 
-Example with all options:
+
+📝 **Example of use**
+
+With all options:
 
 ``MyLogin.exe /ph 0x9461E4B1394C6134483668F09CCF7B93 /dp /dr /dl /st 1 /au``
+
+Or
+
+``myLogin.exe /PassHash [your_hash] /HideButton 110 /DisableSound``
+- Set password
+- Hide Shutdown and Restart buttons
+- Turn off sounds
+
+> [!NOTE]
+If the button is hidden with ``/HideButton``, this option ``/DisablePowerOff``, ``/DisableReboot`` or ``/DisableLockSession``, is ignored.
 
 ## ⚙️ Archive ``INI``
 > [!WARNING]
@@ -94,6 +121,7 @@ DisableExplorer = True
 DisablePowerOff = False
 DisableReboot = False
 DisableLockSession = False
+HideButton = 000
 DisableBlur = False
 DisableSound = False
 Style = 0
