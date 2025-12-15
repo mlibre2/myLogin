@@ -5,6 +5,7 @@ on:
     branches: [ main ]
     paths:
       - 'src/**/*.au3'
+  workflow_dispatch:
 
 ######################################################################### repo permissions (no token)
 
