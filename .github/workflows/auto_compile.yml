@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'src/**/*.au3'
+      - 'src/*.au3'
   workflow_dispatch:
 
 ######################################################################### repo permissions (no token)
