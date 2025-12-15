@@ -25,7 +25,7 @@
 #include <StringConstants.au3>		; Using String
 #include <Inet.au3>					; Download updates
 #include <FileConstants.au3>		; FileOpen, FileWriteLine and FileClose
-#include <WinAPI.au3>				; Required _chkExplorer()...
+#include <WinAPI.au3>				; Required _chkExplorer...
 
 ; configurations
 Const $g_sVersion = "4.2"								; auto-incremental by workflows (compile)
@@ -45,6 +45,7 @@ Global $g_aButtonsParam[4]								; save/get button parameters
 Const $g_sName = "myLogin"								; Script name
 Const $g_sComp = ""								; for testing only
 $g_iPID_upd = 0											; Saves the updater identifier
+Global $g_aHideFlags[4]									; save/get hiden button param (id 0 is size, 1-3 are flags)
 
 ; configuration INI
 $g_sPassHash = ""
@@ -52,14 +53,15 @@ $g_bDisableExplorer = True								; Disable Windows Explorer
 $g_bDisablePowerOff = False								; Disable system Shutdown button
 $g_bDisableReboot = False								; Disable system Reboot button
 $g_bDisableLockSession = False							; Disable system Lock button
+$g_sHideButton = "000"									; 3 digits: PowerOff,Reboot,LockSession
 $g_bDisableBlur = False									; Turn off blur
 $g_bDisableSound = False								; Disable system sounds
 $g_iStyle = 0											; Color style (0=white/1=dark/2=aqua)
 $g_bAutoUpdater = False									; Enable automatic updater
 
 ; preCache
-Enum $PassHash, $DisableExplorer, $DisablePowerOff, $DisableReboot, $DisableLockSession, $DisableBlur, $DisableSound, $Style, $AutoUpdater
-Global $g_aCache[] = [$g_sPassHash, $g_bDisableExplorer, $g_bDisablePowerOff, $g_bDisableReboot, $g_bDisableLockSession, $g_bDisableBlur, $g_bDisableSound, $g_iStyle, $g_bAutoUpdater]
+Enum $PassHash, $DisableExplorer, $DisablePowerOff, $DisableReboot, $DisableLockSession, $HideButton, $DisableBlur, $DisableSound, $Style, $AutoUpdater
+Global $g_aCache[] = [$g_sPassHash, $g_bDisableExplorer, $g_bDisablePowerOff, $g_bDisableReboot, $g_bDisableLockSession, $g_sHideButton, $g_bDisableBlur, $g_bDisableSound, $g_iStyle, $g_bAutoUpdater]
 
 ; Load language files
 _LoadLanguage()
@@ -113,20 +115,36 @@ $idErrorLabel = GUICtrlCreateLabel("", 10, 120, $g_iWidthPassGUI - 20, 20, $SS_C
 GUICtrlSetColor(-1, $g_iStyle > 0 ? 0xFFEC00 : 0xFF0000)
 GUICtrlSetFont(-1, 8, $FW_SEMIBOLD, $GUI_FONTNORMAL, "Consolas")
 
-$idPowerOff = GUICtrlCreateButton(-1, 20, 146, 40, 40, $BS_ICON)
-GUICtrlSetImage(-1, "shell32.dll", -28)
-GUICtrlSetState(-1, $g_bDisablePowerOff ? $GUI_DISABLE : $GUI_ENABLE)
-GUICtrlSetTip(-1, _getLang("SHUTDOWN"))
+If $g_aHideFlags[1] = "0" Then
+   $idPowerOff = GUICtrlCreateButton(-1, 20, 146, 40, 40, $BS_ICON)
+   GUICtrlSetImage(-1, "shell32.dll", -28)
+   GUICtrlSetState(-1, $g_bDisablePowerOff ? $GUI_DISABLE : $GUI_ENABLE)
+   GUICtrlSetTip(-1, _getLang("SHUTDOWN"))
+Else
+   $idPowerOff = -1
+   ; If the button is hidden, force it not to be disabled.
+   If $g_bDisablePowerOff Then $g_bDisablePowerOff = False
+EndIf
 
-$idReboot = GUICtrlCreateButton(-1, 65, 146, 40, 40, $BS_ICON)
-GUICtrlSetImage(-1, "shell32.dll", -239)
-GUICtrlSetState(-1, $g_bDisableReboot ? $GUI_DISABLE : $GUI_ENABLE)
-GUICtrlSetTip(-1, _getLang("REBOOT"))
+If $g_aHideFlags[2] = "0" Then
+   $idReboot = GUICtrlCreateButton(-1, 65, 146, 40, 40, $BS_ICON)
+   GUICtrlSetImage(-1, "shell32.dll", -239)
+   GUICtrlSetState(-1, $g_bDisableReboot ? $GUI_DISABLE : $GUI_ENABLE)
+   GUICtrlSetTip(-1, _getLang("REBOOT"))
+Else
+   $idReboot = -1
+   If $g_bDisableReboot Then $g_bDisableReboot = False
+EndIf
 
-$idLockSession = GUICtrlCreateButton(-1, 110, 146, 40, 40, $BS_ICON)
-GUICtrlSetImage(-1, "shell32.dll", -112)
-GUICtrlSetState(-1, $g_bDisableLockSession ? $GUI_DISABLE : $GUI_ENABLE)
-GUICtrlSetTip(-1, _getLang("LOCK_SESSION"))
+If $g_aHideFlags[3] = "0" Then
+   $idLockSession = GUICtrlCreateButton(-1, 110, 146, 40, 40, $BS_ICON)
+   GUICtrlSetImage(-1, "shell32.dll", -112)
+   GUICtrlSetState(-1, $g_bDisableLockSession ? $GUI_DISABLE : $GUI_ENABLE)
+   GUICtrlSetTip(-1, _getLang("LOCK_SESSION"))
+Else
+   $idLockSession = -1
+   If $g_bDisableLockSession Then $g_bDisableLockSession = False
+EndIf
 
 $idUnlock = GUICtrlCreateButton(-1, 290, 146, 40, 40, $BS_ICON)
 GUICtrlSetImage(-1, "shell32.dll", -177)
@@ -391,6 +409,17 @@ Func _ProcessParameters()
 		 Case "/DisableLockSession", "/dl"
 			$g_bDisableLockSession = True
 
+		 Case "/HideButton", "/hb"
+			If $i + 1 <= $CmdLine[0] Then
+               $g_sHideButton = $CmdLine[$i + 1]
+               $i += 1
+
+			   If Not StringRegExp($g_sHideButton, "^[01]{3}$") Then $g_sHideButton = "000"
+
+			   ; Parse values
+			   $g_aHideFlags = StringSplit($g_sHideButton, "")
+			EndIf
+
 		 Case "/DisableBlur", "/db"
 			$g_bDisableBlur = True
 
@@ -449,7 +478,9 @@ Func _ProcessParameters()
    _ProcessConfig(True)
 
    ; Save button parameters
-   Local $aButtons = [$g_bDisablePowerOff, $g_bDisableReboot, $g_bDisableLockSession]
+   Local $aButtons = [($g_aHideFlags[1] = "0" ? $g_bDisablePowerOff : False), _
+					 ($g_aHideFlags[2] = "0" ? $g_bDisableReboot : False), _
+					 ($g_aHideFlags[3] = "0" ? $g_bDisableLockSession : False)]
 
    For $i = 0 To UBound($aButtons) - 1
 	  $g_aButtonsParam[$i] = $aButtons[$i]
@@ -703,7 +734,7 @@ Func _DisableButtons($bValue)
 
    For $i = 0 To UBound($aButtons) - 1
 	  ; get button parameters
-	  If Not $g_aButtonsParam[$i] Then GUICtrlSetState($aButtons[$i], $bValue ? $GUI_DISABLE : $GUI_ENABLE)
+	  If $aButtons[$i] <> -1 And Not $g_aButtonsParam[$i] Then GUICtrlSetState($aButtons[$i], $bValue ? $GUI_DISABLE : $GUI_ENABLE)
    Next
 EndFunc
 
@@ -1032,9 +1063,13 @@ Func _Uninstall()
 	  Run($sUninsPath & " /silent /suppressmsgboxes", "", @SW_HIDE)
    Else
 
-	  Run("cmd /c mode con cols=80 lines=5 & color 3f & title Uninstaller & echo. & echo. " & _getLang("UNINSTALL_IN_PROGRESS", $g_sName) & " & echo. & ping -n 4 localhost>nul && echo. 100% & ping -n 2 localhost>nul")
+	  SplashTextOn(_getLang("TITLE_UNINSTALL"), _getLang("UNINSTALL_IN_PROGRESS", $g_sName), -1, 50, -1, -1, $DLG_TEXTVCENTER, -1, 15)
+	  Sleep(4000)
 
-	  Run('cmd /c ping -n 1 localhost>nul && rd /s /q "' & @ScriptDir & '"', '', @SW_HIDE)
+	  Run('cmd /c ping -n 3 localhost>nul && cd .. && rd /s /q "' & @ScriptDir & '"', '', @SW_HIDE)
+
+	  SplashTextOn(_getLang("TITLE_UNINSTALL"), "100% " & _getLang("COMPLETE"), -1, 50, -1, -1, $DLG_TEXTVCENTER, -1, 15)
+	  Sleep(2000)
    EndIf
 
    Exit
@@ -1101,6 +1136,21 @@ Func _ProcessConfig($bChk)
    If $g_aCache[$DisableReboot] = $g_bDisableReboot Then $g_bDisableReboot = (IniRead($sIniFile, "config", "DisableReboot", $g_bDisableReboot ? "True" : "False") = "True")
 
    If $g_aCache[$DisableLockSession] = $g_bDisableLockSession Then $g_bDisableLockSession = (IniRead($sIniFile, "config", "DisableLockSession", $g_bDisableLockSession ? "True" : "False") = "True")
+
+   If $g_aCache[$HideButton] = $g_sHideButton Then
+	  $g_sHideButton = IniRead($sIniFile, "config", "HideButton", "000")
+
+	  ; Validate HideButton format (must be 3 digits 0/1)
+	  If Not StringRegExp($g_sHideButton, "^[01]{3}$") Then $g_sHideButton = "000"
+
+	  ; Adjust individual settings according to HideButton
+	  ; If a button is hidden, its disabled setting is ignored
+	  $g_aHideFlags = StringSplit($g_sHideButton, "")
+
+	  If $g_aHideFlags[1] = "1" Then $g_bDisablePowerOff = False
+	  If $g_aHideFlags[2] = "1" Then $g_bDisableReboot = False
+	  If $g_aHideFlags[3] = "1" Then $g_bDisableLockSession = False
+   EndIf
 
    If $g_aCache[$DisableBlur] = $g_bDisableBlur Then $g_bDisableBlur = (IniRead($sIniFile, "config", "DisableBlur", $g_bDisableBlur ? "True" : "False") = "True")
 
