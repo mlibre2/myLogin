@@ -550,7 +550,7 @@ jobs:
 ######################################################################### update release notes
 
     - name: Update release notes
-      uses: actions/github-script@v8
+      uses: actions/github-script@v9
       with:
         github-token: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
         script: |
