@@ -30,7 +30,7 @@
 ; configurations
 Const $g_sVersion = "4.4"								; auto-incremental by workflows (compile)
 Const $g_iTransparencyGUI = 150							; 0-255 (transparent-opaque) fullscreen
-Const $g_iTransparencyPassGUI = 180						; 0-255 (transparent-opaque) for window
+Const $g_iTransparencyPassGUI = 140						; 0-255 (transparent-opaque) for window
 $g_iColorTxt = 0xFFFFFF									; Text color
 Const $g_iBkColorGUI = 0x000000							; Background color (full)
 $g_iBkColorPassGUI = 0xFFFFFF							; Background color (window)
@@ -146,7 +146,7 @@ Else
    If $g_bDisableLockSession Then $g_bDisableLockSession = False
 EndIf
 
-$idUnlock = GUICtrlCreateButton(-1, 290, 146, 40, 40, $BS_ICON)
+$idUnlock = GUICtrlCreateButton(-1, 290, 146, 40, 40, $BS_ICON + $BS_DEFPUSHBUTTON) ; capture key Enter/Intro
 GUICtrlSetImage(-1, "shell32.dll", -177)
 GUICtrlSetTip(-1, _getLang("UNLOCK"))
 
@@ -155,13 +155,6 @@ If Not $g_bDisableSound And _chkCompatibilitySoundPlay() Then SoundPlay(@Windows
 ; Center and show window
 WinMove($hPassGUI, "", (@DesktopWidth - $g_iWidthPassGUI) / 2, (@DesktopHeight - $g_iHeightPassGUI) / 2)
 GUISetState(@SW_SHOW, $hPassGUI)
-
-; Detect key
-Local $aAccelKeys = [ _
-   ["{ENTER}", $idUnlock] _ ; Enter/Intro
-]
-
-GUISetAccelerators($aAccelKeys, $hPassGUI)
 
 ; Main loop
 While 1
@@ -436,10 +429,9 @@ Func _ProcessParameters()
                      $g_iBkColorPassGUI = 0x050505
                   Case 2   ; aqua
                      $g_iBkColorPassGUI = 0x00696D
+				  Case Else
+					 $g_iStyle = 0
 			   EndSwitch
-
-			   ; fixed
-			   If $g_iStyle < 0 Or $g_iStyle > 2 Then $g_iStyle = 0
             EndIf
 
 		 Case "/AutoUpdater", "/au"
@@ -998,15 +990,14 @@ Func _Debug($sMessage)
    If $iFileSize = -1 Then
 	  $iFileSize = FileGetSize($sDebugPath)
 
-	  ; Truncate file if it exceeds (50 MB = 52428800 bytes)
-	  If $iFileSize >= 52428800 Then RunWait('cmd /c (echo. )>"' & $sDebugPath & '"', '', @SW_HIDE)
-
+	  ; Truncate file if it exceeds (10 MB = 10485760‬ bytes)
+	  If $iFileSize >= 10485760 Then RunWait('cmd /u /c (echo. )>"' & $sDebugPath & '"', '', @SW_HIDE)
    EndIf
 
    ; Escape internal quotes and then wrap
    $sMessage = '"' & StringReplace($sMessage, '"', '""') & '"'
 
-   RunWait('cmd /c (echo ' & $sDateTime & ' ' & $sMessage & ')>>"' & $sDebugPath & '"', '', @SW_HIDE)
+   RunWait('cmd /u /c (echo ' & $sDateTime & ' ' & $sMessage & ')>>"' & $sDebugPath & '"', '', @SW_HIDE)
 
    ; We check if you wrote for the first time
    If $iDebugFail = -1 Then
@@ -1020,7 +1011,7 @@ Func _Debug($sMessage)
 	  $sMessage = _getLang("REPORT", "https://github.com/mlibre2/" & $g_sName & $g_sComp & "/issues")
 	  $sMessage = '"' & StringReplace($sMessage, '"', '""') & '"'
 
-	  RunWait('cmd /c (echo ' & $sDateTime & ' ' & $sMessage & ')>>"' & $sDebugPath & '"', '', @SW_HIDE)
+	  RunWait('cmd /u /c (echo ' & $sDateTime & ' ' & $sMessage & ')>>"' & $sDebugPath & '"', '', @SW_HIDE)
    EndIf
 EndFunc
 
@@ -1164,10 +1155,9 @@ Func _ProcessConfig($bChk)
 			$g_iBkColorPassGUI = 0x050505
 		 Case 2   ; aqua
 			$g_iBkColorPassGUI = 0x00696D
+		 Case Else
+			$g_iStyle = 0
 	  EndSwitch
-
-	  ; fixed
-	  If $g_iStyle < 0 Or $g_iStyle > 2 Then $g_iStyle = 0
    EndIf
 
    If $g_aCache[$AutoUpdater] = $g_bAutoUpdater Then
