@@ -400,14 +400,14 @@ jobs:
       
 ######################################################################### compress files (optional)
 
-#    - name: Upload artifact
-#      uses: actions/upload-artifact@v4
-#      with:
-#        name: ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Portable
-#        path: |
-#          ${{ env.SCRIPT_NAME }}.exe
-#          config.ini
-#          lang\
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Portable
+        path: |
+          ${{ env.SCRIPT_NAME }}.exe
+          config.ini
+          lang\
 
 ######################################################################### config. git/gpg/commit/tag
 
@@ -440,10 +440,9 @@ jobs:
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v3
-      env:
-        GITHUB_TOKEN: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
       with:
         tag_name: ${{ env.NEW_VERSION }}
+        token: ${{ secrets.AUTOIT_DEPLOY_TOKEN }}
         files: |
           ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Portable.zip
           ${{ env.SCRIPT_NAME }}${{ env.NEW_VERSION }}_Setup.exe
